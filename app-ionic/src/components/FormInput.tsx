@@ -1,6 +1,7 @@
 import React from 'react';
 import { IonInput } from '@ionic/react';
 import { Controller, Control, FieldValues, Path } from 'react-hook-form';
+import type { AutocompleteTypes } from '@ionic/core';
 
 interface FormInputProps<T extends FieldValues> {
   name: Path<T>;
@@ -9,7 +10,7 @@ interface FormInputProps<T extends FieldValues> {
   type?: 'text' | 'email' | 'password' | 'tel';
   placeholder?: string;
   required?: boolean;
-  autocomplete?: string;
+  autocomplete?: AutocompleteTypes;
   error?: string;
   inputStyle?: React.CSSProperties;
   labelStyle?: React.CSSProperties;
@@ -64,7 +65,7 @@ export function FormInput<T extends FieldValues>({
         render={({ field }) => (
           <IonInput
             value={field.value || ''}
-            onIonInput={(e: any) => field.onChange(e.target.value)}
+            onIonInput={(e) => field.onChange(e.detail.value)}
             onBlur={field.onBlur}
             type={type}
             placeholder={placeholder}

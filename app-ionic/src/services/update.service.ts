@@ -16,7 +16,8 @@ export interface BundleInfo {
 }
 
 // URL base del servidor de actualizaciones - configurar según tu backend
-const UPDATE_SERVER_URL = import.meta.env.VITE_UPDATE_SERVER_URL || 'https://tu-servidor.com/api/updates';
+const UPDATE_SERVER_URL =
+  import.meta.env.VITE_UPDATE_SERVER_URL || 'https://tu-servidor.com/api/updates';
 
 class UpdateService {
   private isNative: boolean;
@@ -232,7 +233,7 @@ class UpdateService {
     }
 
     try {
-      const result = await LiveUpdate.getBundle();
+      const result = await LiveUpdate.getCurrentBundle();
       return result.bundleId ?? undefined;
     } catch (error) {
       console.error('Error obteniendo bundle actual:', error);

@@ -4,12 +4,14 @@ import {
   IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonButton, IonIcon, IonGrid, IonRow, IonCol,
   IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
-  IonText, IonToast, IonBadge,
+  IonText, IonToast, IonBadge, IonSpinner,
 } from "@ionic/react";
 import {
   documentText, mail, print, calculator,
-  car, checkmarkCircle, alertCircle, download,
+  car, checkmarkCircle, alertCircle, download, camera, trash,
 } from "ionicons/icons";
+import { cameraService, EvidencePhoto } from "../services/camera.service";
+import { evidenceData } from "../storage";
 
 interface Usuario {
   nombre: string;
@@ -30,6 +32,11 @@ interface Vehiculo {
 
 const TASA_BASE = 0.0339; // 3.39% del valor asegurado
 
+interface EvidenceState {
+  vehicle?: EvidencePhoto;
+  document?: EvidencePhoto;
+}
+
 const Profile: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -42,6 +49,8 @@ const Profile: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [toastColor, setToastColor] = useState("success");
   const [error, setError] = useState("");
+  const [evidence, setEvidence] = useState<EvidenceState>({});
+  const [capturingType, setCapturingType] = useState<keyof EvidenceState | null>(null);
 
   useEffect(() => {
     const raw = localStorage.getItem("brokersec_usuario") || localStorage.getItem("app_kickoff_user");
@@ -49,6 +58,53 @@ const Profile: React.FC = () => {
       try { setUsuario(JSON.parse(raw)); } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    const loadEvidence = async () => {
+      try {
+        const storedEvidence = await evidenceData.get();
+        setEvidence(storedEvidence);
+      } catch (storageError) {
+        console.error("Error cargando evidencia:", storageError);
+      }
+    };
+
+    loadEvidence();
+  }, []);
+
+  const showFeedback = (message: string, color = "success") => {
+    setToastMsg(message);
+    setToastColor(color);
+    setShowToast(true);
+  };
+
+  const handleCaptureEvidence = async (type: keyof EvidenceState) => {
+    setCapturingType(type);
+    try {
+      const photo = await cameraService.takeEvidencePhoto(type);
+      const updatedEvidence = await evidenceData.savePhoto(photo);
+      setEvidence(updatedEvidence);
+      showFeedback(`${photo.label} capturada correctamente.`);
+    } catch (captureError) {
+      const message =
+        captureError instanceof Error
+          ? captureError.message
+          : "No se pudo capturar la evidencia.";
+      showFeedback(message, "danger");
+    } finally {
+      setCapturingType(null);
+    }
+  };
+
+  const handleRemoveEvidence = async (type: keyof EvidenceState) => {
+    try {
+      const updatedEvidence = await evidenceData.removePhoto(type);
+      setEvidence(updatedEvidence);
+      showFeedback("Evidencia eliminada.");
+    } catch (storageError) {
+      showFeedback("No se pudo eliminar la evidencia.", "danger");
+    }
+  };
 
   const calcularPrima = () => {
     setError("");
@@ -72,6 +128,10 @@ const Profile: React.FC = () => {
       fecha: new Date().toLocaleDateString("es-EC", { day: "numeric", month: "long", year: "numeric" }),
       usuario,
       vehiculo: { ...vehiculo },
+      evidencia: {
+        vehiculo: !!evidence.vehicle,
+        cedula: !!evidence.document,
+      },
       valorCasco: casco,
       valorExtras: extras,
       valorAsegurado,
@@ -152,9 +212,7 @@ const Profile: React.FC = () => {
       `Tel: 02 500 8000\n`
     );
     window.location.href = `mailto:${emailDestino}?subject=${asunto}&body=${cuerpo}`;
-    setToastMsg("Abriendo cliente de correo...");
-    setToastColor("primary");
-    setShowToast(true);
+    showFeedback("Abriendo cliente de correo...", "primary");
   };
 
   const inputStyle = { "--background": "#f0f4ff" } as any;
@@ -192,6 +250,119 @@ const Profile: React.FC = () => {
         )}
 
         {/* Formulario vehiculo */}
+        <div style={{ padding: "14px 16px 0" }}>
+          <IonCard style={{ margin: 0, borderRadius: 12, border: "2px dashed #34a853" }}>
+            <IonCardHeader style={{ paddingBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <IonIcon icon={camera} style={{ color: "#34a853", fontSize: 20 }} />
+                <IonCardTitle style={{ fontSize: 16, color: "#137333" }}>
+                  Inspeccion digital del vehiculo
+                </IonCardTitle>
+              </div>
+            </IonCardHeader>
+            <IonCardContent>
+              <p style={{ fontSize: 12, color: "#555", marginTop: 0 }}>
+                Captura evidencia visual para respaldar la cotizacion y facilitar la inspeccion del cliente.
+              </p>
+              <IonGrid style={{ padding: 0 }}>
+                <IonRow>
+                  {[
+                    {
+                      key: "vehicle" as const,
+                      title: "Foto del vehiculo",
+                      subtitle: "Frontal o lateral del auto",
+                      photo: evidence.vehicle,
+                    },
+                    {
+                      key: "document" as const,
+                      title: "Foto de la cedula",
+                      subtitle: "Documento del titular",
+                      photo: evidence.document,
+                    },
+                  ].map((item) => (
+                    <IonCol size="12" sizeMd="6" key={item.key}>
+                      <div
+                        style={{
+                          background: "#f8fff9",
+                          border: "1px solid #d2f0d9",
+                          borderRadius: 12,
+                          padding: 12,
+                          minHeight: 260,
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "space-between",
+                          gap: 12,
+                        }}
+                      >
+                        <div>
+                          <p style={{ fontWeight: "bold", margin: "0 0 4px", color: "#137333" }}>
+                            {item.title}
+                          </p>
+                          <p style={{ fontSize: 12, color: "#666", margin: 0 }}>{item.subtitle}</p>
+                        </div>
+
+                        {item.photo ? (
+                          <img
+                            src={item.photo.dataUrl}
+                            alt={item.title}
+                            style={{
+                              width: "100%",
+                              height: 140,
+                              objectFit: "cover",
+                              borderRadius: 10,
+                              border: "1px solid #cde7d1",
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              height: 140,
+                              borderRadius: 10,
+                              border: "1px dashed #b7dabb",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: "#7a7a7a",
+                              fontSize: 12,
+                              textAlign: "center",
+                              padding: 12,
+                            }}
+                          >
+                            Aun no hay evidencia capturada
+                          </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <IonButton
+                            expand="block"
+                            onClick={() => handleCaptureEvidence(item.key)}
+                            disabled={capturingType !== null}
+                            style={{ flex: 1, margin: 0 }}
+                          >
+                            {capturingType === item.key ? <IonSpinner name="crescent" /> : <IonIcon icon={camera} slot="start" />}
+                            {item.photo ? "Repetir foto" : "Tomar foto"}
+                          </IonButton>
+                          {item.photo && (
+                            <IonButton
+                              color="medium"
+                              fill="outline"
+                              onClick={() => handleRemoveEvidence(item.key)}
+                              disabled={capturingType !== null}
+                              style={{ margin: 0 }}
+                            >
+                              <IonIcon icon={trash} />
+                            </IonButton>
+                          )}
+                        </div>
+                      </div>
+                    </IonCol>
+                  ))}
+                </IonRow>
+              </IonGrid>
+            </IonCardContent>
+          </IonCard>
+        </div>
+
         <div style={{ padding: "14px 16px 0" }}>
           <IonCard style={{ margin: 0, border: "2px solid #1a73e8", borderRadius: 12 }}>
             <IonCardHeader style={{ paddingBottom: 4 }}>
@@ -323,6 +494,18 @@ const Profile: React.FC = () => {
                           CI: {cotizacion.usuario.cedula}
                         </p>
                       )}
+                    </div>
+
+                    <div style={{ background: "#f8fff9", borderRadius: 8, padding: "10px 12px", marginBottom: 12 }}>
+                      <p style={{ fontSize: 11, color: "#137333", fontWeight: "bold", margin: "0 0 8px" }}>
+                        EVIDENCIA NATIVA CAPTURADA
+                      </p>
+                      <p style={{ fontSize: 12, margin: "0 0 4px" }}>
+                        Foto del vehiculo: <strong>{cotizacion.evidencia?.vehiculo ? "Adjunta" : "Pendiente"}</strong>
+                      </p>
+                      <p style={{ fontSize: 12, margin: 0 }}>
+                        Foto de la cedula: <strong>{cotizacion.evidencia?.cedula ? "Adjunta" : "Pendiente"}</strong>
+                      </p>
                     </div>
 
                     {/* Datos vehiculo */}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">App Kick Off</string>
+    <string name="title_activity_main">App Kick Off</string>
+    <string name="package_name">com.example.appkickoff</string>
+    <string name="custom_url_scheme">com.example.appkickoff</string>
+</resources>

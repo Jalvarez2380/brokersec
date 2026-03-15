@@ -35,7 +35,7 @@ const Register: React.FC = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       dni: "",
       firstName: "",
@@ -101,7 +101,7 @@ const Register: React.FC = () => {
             <h2 style={{ color: '#005495', fontWeight: 'bold' }}>BROKERSEC</h2>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form onSubmit={handleSubmit(onSubmit as any)}>
             <FormInput name="dni" control={control} label="DNI / Cédula" placeholder="Ej: 0999999999" error={errors.dni?.message} />
 
             <div style={{ display: "flex", gap: "10px" }}>
