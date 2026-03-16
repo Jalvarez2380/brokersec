@@ -4,6 +4,12 @@
 
 require('dotenv').config();
 
+const dbHost = process.env.DB_HOST || 'localhost';
+const dbPort = parseInt(process.env.DB_PORT, 10) || 5433;
+const dbUser = process.env.DB_USER || 'postgres';
+const dbPassword = process.env.DB_PASSWORD || '12345';
+const dbName = process.env.DB_NAME || 'brokersec';
+
 module.exports = {
   // Servidor
   server: {
@@ -13,12 +19,19 @@ module.exports = {
 
   // Base de datos
   database: {
-    url: process.env.DATABASE_URL,
+    host: dbHost,
+    port: dbPort,
+    user: dbUser,
+    password: dbPassword,
+    name: dbName,
+    url: process.env.DATABASE_URL || `postgresql://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`,
+    max: parseInt(process.env.DB_POOL_MAX, 10) || 10,
+    idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000,
   },
 
   // JWT
   jwt: {
-    secret: process.env.JWT_SECRET,
+    secret: process.env.JWT_SECRET || 'brokersec-super-secret-key-2025-change-in-production',
     expiresIn: process.env.JWT_EXPIRE || '7d',
   },
 

@@ -16,6 +16,7 @@ import { Preferences } from "@capacitor/preferences";
 
 const Home: React.FC = () => {
   const history = useHistory();
+  const whatsappUrl = "https://wa.me/593999772225";
 
   // ——— Detectar si ya hay usuario registrado ———
   const [yaRegistrado, setYaRegistrado] = useState(false);
@@ -65,6 +66,13 @@ const Home: React.FC = () => {
       await Preferences.remove({ key: "app_kickoff_user" });
     } catch {}
     window.location.href = "/login";
+  };
+
+  const openWhatsApp = () => {
+    const popup = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      window.location.href = whatsappUrl;
+    }
   };
 
   // ——— Registro ———
@@ -551,7 +559,7 @@ const Home: React.FC = () => {
               <IonButton color="light" expand="block" href="tel:025008000" style={{ marginBottom: 6 }}>
                 Oficina: 02 500 8000
               </IonButton>
-              <IonButton color="light" fill="outline" expand="block">
+              <IonButton color="light" fill="outline" expand="block" onClick={openWhatsApp}>
                 Chat WhatsApp 24/7
               </IonButton>
             </IonCardContent>

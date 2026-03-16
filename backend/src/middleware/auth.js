@@ -2,6 +2,7 @@
 // Middleware: Autenticación y Seguridad
 // ============================================
 
+const jwt = require('jsonwebtoken');
 const config = require('../config');
 
 /**
@@ -29,6 +30,30 @@ const verifyApiKey = (req, res, next) => {
   next();
 };
 
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers.authorization || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token requerido',
+      error: 'No autorizado',
+    });
+  }
+
+  try {
+    req.user = jwt.verify(token, config.jwt.secret);
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: 'Token inválido o expirado',
+      error: 'No autorizado',
+    });
+  }
+};
+
 /**
  * Middleware: Logging de requests
  */
@@ -49,6 +74,7 @@ const errorHandler = (err, req, res, next) => {
 
   res.status(statusCode).json({
     success: false,
+    message,
     error: message,
     ...(config.server.env === 'development' && { stack: err.stack }),
   });
@@ -75,6 +101,7 @@ const validateBody = (schema) => {
 
 module.exports = {
   verifyApiKey,
+  authenticateToken,
   requestLogger,
   errorHandler,
   validateBody,

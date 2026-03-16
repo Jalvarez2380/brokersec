@@ -1,29 +1,25 @@
-// ============================================
-// BROKERSEC Backend Server - CORREGIDO
-// ============================================
-
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const config = require('./config');
 const { requestLogger, errorHandler } = require('./middleware/auth');
+const { initializeDatabase } = require('./db/init');
 
-// Rutas - ASEGÚRATE DE TENER ESTA LÍNEA
 const weatherRoutes = require('./routes/weather');
-// Si tienes una ruta de auth, agrégala aquí. Si no, usaremos la de weather temporalmente.
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const vehicleRoutes = require('./routes/vehicles');
+const quoteRoutes = require('./routes/quotes');
+const inspectionRoutes = require('./routes/inspections');
+const healthRoutes = require('./routes/health');
 
 const app = express();
 
-// ============================================
-// Middleware de Seguridad
-// ============================================
 app.use(helmet());
-
-// CORS - MUY IMPORTANTE PARA QUITAR EL "FAILED TO FETCH"
 app.use(cors({
-  origin: '*', // Permite conexiones desde cualquier puerto (5173, etc)
-  credentials: true
+  origin: '*',
+  credentials: true,
 }));
 
 const limiter = rateLimit({
@@ -31,35 +27,37 @@ const limiter = rateLimit({
   max: config.rateLimit.max,
   message: { success: false, error: 'Demasiadas solicitudes.' },
 });
-app.use('/api/', limiter);
 
-// ============================================
-// Middleware General
-// ============================================
+app.use('/api/', limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
-// ============================================
-// Rutas
-// ============================================
-
-// Health check
 app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'BROKERSEC Backend API',
     endpoints: {
+      health: '/api/health/db',
+      authSignup: '/api/auth/signup',
+      authSignin: '/api/auth/signin',
+      users: '/api/users',
+      vehicles: '/api/vehicles',
+      quotes: '/api/quotes',
+      inspections: '/api/inspections',
       clima: '/api/v1/clima',
-      registro: '/api/v1/clima/register' // Ruta para que la App no de error
-    }
+    },
   });
 });
 
-// Rutas de API
+app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/vehicles', vehicleRoutes);
+app.use('/api/quotes', quoteRoutes);
+app.use('/api/inspections', inspectionRoutes);
 app.use('/api/v1/clima', weatherRoutes);
 
-// Ruta 404
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -70,23 +68,28 @@ app.use((req, res) => {
 
 app.use(errorHandler);
 
-// ============================================
-// Iniciar Servidor - CAMBIO CLAVE A '0.0.0.0'
-// ============================================
-
 const PORT = config.server.port || 3001;
 
-// Usamos '0.0.0.0' para que Windows no bloquee la conexión entre puertos
-app.listen(PORT, '0.0.0.0', () => {
-  console.log('🚀 ============================================');
-  console.log('   BROKERSEC Backend Server CORREGIDO');
-  console.log('============================================');
-  console.log(`📡 Servidor en: http://127.0.0.1:${PORT}`);
-  console.log('============================================');
+async function startServer() {
+  await initializeDatabase();
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log('============================================');
+    console.log('BROKERSEC Backend Server');
+    console.log('============================================');
+    console.log(`Servidor en: http://127.0.0.1:${PORT}`);
+    console.log(`DB: postgresql://${config.database.user}@${config.database.host}:${config.database.port}/${config.database.name}`);
+    console.log('============================================');
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Error al iniciar el backend:', error);
+  process.exit(1);
 });
 
 process.on('unhandledRejection', (err) => {
-  console.error('❌ Error:', err);
+  console.error('Error:', err);
   process.exit(1);
 });
 
