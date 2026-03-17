@@ -33,7 +33,6 @@ import Cotizador from "./pages/Cotizador";
 import { authService } from "./services/auth.service";
 import { initStorage } from "./storage";
 import { updateService } from "./services/update.service";
-// ← AGREGADO: import del MOCK
 import { USE_MOCK_FALLBACK } from "./config";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -127,7 +126,6 @@ const App: React.FC = () => {
           console.warn("Error sincronizando Preferences -> localStorage", e);
         }
 
-        // ← CORRECCIÓN CLAVE: Si MOCK activo, siempre autenticado
         const authenticated = USE_MOCK_FALLBACK
           ? true
           : await authService.isAuthenticatedAsync();

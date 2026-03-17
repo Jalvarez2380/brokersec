@@ -8,6 +8,7 @@ import { USE_MOCK_FALLBACK } from "../config";
 import { Preferences } from "@capacitor/preferences";
 import { API_BASE } from "../config";
 import queryClient from "../queryClient";
+import { normalizeAppUser } from "./user.utils";
 
 const TOKEN_KEY = "app_kickoff_token";
 const USER_KEY = "app_kickoff_user";
@@ -34,9 +35,12 @@ export interface UserData {
   username: string;
   email?: string;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   role?: string;
   token?: string;
   dni?: string;
+  mobile?: string;
 }
 
 /**
@@ -65,13 +69,17 @@ async function signin(credentials: Credentials): Promise<UserData> {
     }
 
     // Guardar información del usuario en storage
+    const normalized = normalizeAppUser(data);
     const userInfo: UserData = {
       id: data.id,
       username: data.username,
       email: data.email,
-      name: data.name,
+      name: normalized?.name || data.name,
       role: data.role,
       dni: (data as any).dni,
+      ...(normalized?.firstName ? { firstName: normalized.firstName } : {}),
+      ...(normalized?.lastName ? { lastName: normalized.lastName } : {}),
+      ...(normalized?.mobile ? { mobile: normalized.mobile } : {}),
     };
 
     localStorage.setItem(USER_KEY, JSON.stringify(userInfo));
@@ -162,12 +170,19 @@ async function signout(): Promise<void> {
 async function user(): Promise<UserData | null> {
   try {
     const data = await api.get<UserData>("/api/auth/user");
+    const normalized = normalizeAppUser(data);
+    const mergedData = {
+      ...data,
+      ...normalized,
+      name: normalized?.name || data.name,
+    };
 
     // Actualizar datos en storage
-    await profileData.set(data);
-    localStorage.setItem(USER_KEY, JSON.stringify(data));
+    await profileData.set(mergedData);
+    localStorage.setItem(USER_KEY, JSON.stringify(mergedData));
+    await Preferences.set({ key: USER_KEY, value: JSON.stringify(mergedData) });
 
-    return data;
+    return mergedData;
   } catch (err) {
     console.error("Error al obtener usuario:", err);
     return null;

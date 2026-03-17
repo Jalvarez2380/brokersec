@@ -12,7 +12,8 @@ import {
   person, logOut,
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
-import { Preferences } from "@capacitor/preferences";
+import { authService } from "../services/auth.service";
+import { getUserDisplayName, normalizeAppUser } from "../services/user.utils";
 
 const Home: React.FC = () => {
   const history = useHistory();
@@ -23,16 +24,21 @@ const Home: React.FC = () => {
   const [usuarioActual, setUsuarioActual] = useState<any>(null);
 
   useEffect(() => {
-    const raw =
-      localStorage.getItem("brokersec_usuario") ||
-      localStorage.getItem("app_kickoff_user");
-    if (raw) {
-      try {
-        const u = JSON.parse(raw);
-        setUsuarioActual(u);
+    const loadUser = async () => {
+      const localUser = normalizeAppUser(authService.getCurrentUser());
+      if (localUser) {
+        setUsuarioActual(localUser);
         setYaRegistrado(true);
-      } catch {}
-    }
+      }
+
+      const apiUser = normalizeAppUser(await authService.user());
+      if (apiUser) {
+        setUsuarioActual(apiUser);
+        setYaRegistrado(true);
+      }
+    };
+
+    loadUser();
   }, []);
 
   // ——— Estados del formulario ———
@@ -56,15 +62,7 @@ const Home: React.FC = () => {
 
   // ——— Cerrar sesion ———
   const handleLogout = async () => {
-    localStorage.removeItem("brokersec_usuario");
-    localStorage.removeItem("app_kickoff_user");
-    localStorage.removeItem("app_kickoff_authenticated");
-    localStorage.removeItem("app_kickoff_token");
-    try {
-      await Preferences.remove({ key: "app_kickoff_authenticated" });
-      await Preferences.remove({ key: "app_kickoff_token" });
-      await Preferences.remove({ key: "app_kickoff_user" });
-    } catch {}
+    await authService.signout();
     window.location.href = "/login";
   };
 
@@ -113,34 +111,29 @@ const Home: React.FC = () => {
     }
 
     setLoading(true);
-    setRegSuccess("Registro exitoso! Redirigiendo...");
-
-    const userData = {
-      cedula, telefono, nombre, apellido,
-      email, usuario,
-      fechaRegistro: new Date().toISOString(),
-    };
-
-    // Guardar en localStorage
-    localStorage.setItem("brokersec_usuario", JSON.stringify(userData));
-    localStorage.setItem("app_kickoff_user", JSON.stringify(userData));
-    localStorage.setItem("app_kickoff_authenticated", "true");
-    localStorage.setItem("app_kickoff_token", "brokersec_" + Date.now());
-
-    // Guardar en Capacitor Preferences (necesario para App.tsx)
     try {
-      await Preferences.set({ key: "app_kickoff_authenticated", value: "true" });
-      await Preferences.set({ key: "app_kickoff_token", value: "brokersec_" + Date.now() });
-      await Preferences.set({ key: "app_kickoff_user", value: JSON.stringify(userData) });
-    } catch (e) {
-      console.warn("Preferences no disponible:", e);
-    }
+      await authService.signup({
+        dni: cedula,
+        firstName: nombre,
+        lastName: apellido,
+        email,
+        username: usuario,
+        password,
+        mobile: telefono,
+      });
 
-    setTimeout(() => {
+      setRegSuccess("Registro exitoso! Ahora puedes iniciar sesion.");
+      setToastMsg("Usuario registrado en PostgreSQL correctamente.");
+      setShowToast(true);
+
+      setTimeout(() => {
+        setLoading(false);
+        window.location.href = "/login";
+      }, 1500);
+    } catch (err: any) {
       setLoading(false);
-      // Recarga completa para que App.tsx detecte la autenticacion
-      window.location.href = "/tabs/inicio";
-    }, 1500);
+      setRegError(err?.message || "No se pudo registrar el usuario.");
+    }
   };
 
   return (
@@ -213,12 +206,12 @@ const Home: React.FC = () => {
                     alignItems: "center", justifyContent: "center",
                     color: "white", fontWeight: "bold", fontSize: 18
                   }}>
-                    {(usuarioActual.nombre || "U")[0].toUpperCase()}
-                    {(usuarioActual.apellido || "")[0]?.toUpperCase()}
+                    {(usuarioActual.firstName || usuarioActual.nombre || "U")[0].toUpperCase()}
+                    {(usuarioActual.lastName || usuarioActual.apellido || "")[0]?.toUpperCase()}
                   </div>
                   <div>
                     <p style={{ fontWeight: "bold", fontSize: 16, margin: 0 }}>
-                      {usuarioActual.nombre} {usuarioActual.apellido}
+                      {getUserDisplayName(usuarioActual)}
                     </p>
                     <IonBadge color="success" style={{ fontSize: 10 }}>Cliente Activo</IonBadge>
                   </div>
@@ -227,9 +220,9 @@ const Home: React.FC = () => {
                 <div style={{ marginBottom: 12 }}>
                   {[
                     { label: "Email", value: usuarioActual.email },
-                    { label: "Telefono", value: usuarioActual.telefono },
-                    { label: "Cedula", value: usuarioActual.cedula },
-                    { label: "Usuario", value: usuarioActual.usuario },
+                    { label: "Telefono", value: usuarioActual.mobile || usuarioActual.telefono },
+                    { label: "Cedula", value: usuarioActual.dni || usuarioActual.cedula },
+                    { label: "Usuario", value: usuarioActual.username || usuarioActual.usuario },
                   ].map((item, i) => (
                     <div key={i} style={{
                       display: "flex", justifyContent: "space-between",

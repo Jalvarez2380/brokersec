@@ -12,8 +12,11 @@ import {
 } from "ionicons/icons";
 import { cameraService, EvidencePhoto } from "../services/camera.service";
 import { evidenceData } from "../storage";
+import { authService } from "../services/auth.service";
+import { createVehicleAndQuote } from "../services/quote.service";
 
 interface Usuario {
+  id?: number;
   nombre: string;
   apellido: string;
   email: string;
@@ -51,12 +54,27 @@ const Profile: React.FC = () => {
   const [error, setError] = useState("");
   const [evidence, setEvidence] = useState<EvidenceState>({});
   const [capturingType, setCapturingType] = useState<keyof EvidenceState | null>(null);
+  const [savingQuote, setSavingQuote] = useState(false);
 
   useEffect(() => {
-    const raw = localStorage.getItem("brokersec_usuario") || localStorage.getItem("app_kickoff_user");
-    if (raw) {
-      try { setUsuario(JSON.parse(raw)); } catch {}
-    }
+    const loadUser = async () => {
+      const currentUser = await authService.user();
+      if (currentUser) {
+        setUsuario({
+          id: currentUser.id,
+          nombre: (currentUser as any).firstName || currentUser.name?.split(" ")?.[0] || "",
+          apellido:
+            (currentUser as any).lastName ||
+            (typeof currentUser.name === "string" ? currentUser.name.split(" ").slice(1).join(" ") : ""),
+          email: currentUser.email || "",
+          telefono: (currentUser as any).mobile || "",
+          cedula: currentUser.dni || "",
+          usuario: currentUser.username,
+        });
+      }
+    };
+
+    loadUser();
   }, []);
 
   useEffect(() => {
@@ -106,7 +124,7 @@ const Profile: React.FC = () => {
     }
   };
 
-  const calcularPrima = () => {
+  const calcularPrima = async () => {
     setError("");
     if (!vehiculo.marca || !vehiculo.modelo || !vehiculo.anio || !vehiculo.valorCasco) {
       setError("Completa todos los datos del vehiculo.");
@@ -124,22 +142,57 @@ const Profile: React.FC = () => {
     const primaTotal = primaNeta + iva;
     const cuotaMensual = primaTotal / 6;
 
-    setCotizacion({
-      fecha: new Date().toLocaleDateString("es-EC", { day: "numeric", month: "long", year: "numeric" }),
-      usuario,
-      vehiculo: { ...vehiculo },
-      evidencia: {
-        vehiculo: !!evidence.vehicle,
-        cedula: !!evidence.document,
-      },
-      valorCasco: casco,
-      valorExtras: extras,
-      valorAsegurado,
-      primaNeta: primaNeta.toFixed(2),
-      iva: iva.toFixed(2),
-      primaTotal: primaTotal.toFixed(2),
-      cuotaMensual: cuotaMensual.toFixed(2),
-    });
+    try {
+      setSavingQuote(true);
+      const persisted = await createVehicleAndQuote({
+        brand: vehiculo.marca,
+        model: vehiculo.modelo,
+        year: Number(vehiculo.anio),
+        insuredValue: valorAsegurado,
+        extrasValue: extras,
+        premiumNet: primaNeta,
+        taxes: iva,
+        totalPremium: primaTotal,
+        coveragePlan: "todo-riesgo",
+        payload: {
+          vehicleMetadata: {
+            source: "profile",
+            evidenceCaptured: {
+              vehicle: !!evidence.vehicle,
+              document: !!evidence.document,
+            },
+          },
+          evidence,
+          summary: {
+            cuotaMensual,
+          },
+        },
+      });
+
+      setCotizacion({
+        id: persisted.quote?.id,
+        vehicleId: persisted.vehicle?.id,
+        fecha: new Date().toLocaleDateString("es-EC", { day: "numeric", month: "long", year: "numeric" }),
+        usuario,
+        vehiculo: { ...vehiculo },
+        evidencia: {
+          vehiculo: !!evidence.vehicle,
+          cedula: !!evidence.document,
+        },
+        valorCasco: casco,
+        valorExtras: extras,
+        valorAsegurado,
+        primaNeta: primaNeta.toFixed(2),
+        iva: iva.toFixed(2),
+        primaTotal: primaTotal.toFixed(2),
+        cuotaMensual: cuotaMensual.toFixed(2),
+      });
+      showFeedback("Cotizacion guardada en PostgreSQL.");
+    } catch (err: any) {
+      setError(err?.message || "No se pudo guardar la cotizacion.");
+    } finally {
+      setSavingQuote(false);
+    }
   };
 
   const handleImprimir = () => {
@@ -420,9 +473,9 @@ const Profile: React.FC = () => {
                 </IonText>
               )}
 
-              <IonButton expand="block" onClick={calcularPrima} style={{ marginTop: 12 }}>
+              <IonButton expand="block" onClick={calcularPrima} style={{ marginTop: 12 }} disabled={savingQuote}>
                 <IonIcon icon={calculator} slot="start" />
-                Calcular Cotizacion
+                {savingQuote ? "Guardando Cotizacion..." : "Calcular Cotizacion"}
               </IonButton>
             </IonCardContent>
           </IonCard>

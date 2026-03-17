@@ -39,7 +39,5 @@ function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase();
 
-// ================================================================
-// CAMBIO CLAVE: Se activa el MOCK en TRUE para entrar sin Backend
-// ================================================================
-export const USE_MOCK_FALLBACK = true;
+// Mantener en false para forzar el uso del backend real.
+export const USE_MOCK_FALLBACK = false;

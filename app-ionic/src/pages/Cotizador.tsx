@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
   IonItem, IonLabel, IonInput, IonButton, IonList,
-  IonListHeader, IonText, IonSelect, IonSelectOption, IonAlert,
+  IonListHeader, IonText, IonSelect, IonSelectOption, IonAlert, IonToast,
 } from "@ionic/react";
+import { createVehicleAndQuote } from "../services/quote.service";
 
 const ANO_ACTUAL = 2026;
 const MARCAS = ["Toyota", "Chevrolet", "Hyundai", "Kia", "Mazda", "Nissan", "Ford", "Volkswagen", "Honda", "Otro"];
@@ -17,8 +18,11 @@ const Cotizador: React.FC = () => {
   const [resultado, setResultado] = useState<any>(null);
   const [errorAnio, setErrorAnio] = useState("");
   const [showAlert, setShowAlert] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
-  const calcular = () => {
+  const calcular = async () => {
     const anioNum = parseInt(anio);
     const valorNum = parseFloat(valor) || 0;
     const extrasNum = parseFloat(extras) || 0;
@@ -47,13 +51,53 @@ const Cotizador: React.FC = () => {
     const iva = subtotal * 0.15;
     const total = subtotal + iva;
 
-    setResultado({
-      marca, modelo, anio: anioNum,
-      valorVehiculo: valorNum,
-      extrasValor: extrasNum,
-      valorTotal, primaNeta, superBancos,
-      seguroCampesino, derechoEmision, subtotal, iva, total,
-    });
+    try {
+      setLoading(true);
+      const persisted = await createVehicleAndQuote({
+        brand: marca,
+        model: modelo,
+        year: anioNum,
+        insuredValue: valorTotal,
+        extrasValue: extrasNum,
+        premiumNet: primaNeta,
+        taxes: iva,
+        totalPremium: total,
+        coveragePlan: "todo-riesgo",
+        payload: {
+          vehicleMetadata: {
+            source: "cotizador",
+          },
+          breakdown: {
+            valorVehiculo: valorNum,
+            extrasValor: extrasNum,
+            valorTotal,
+            primaNeta,
+            superBancos,
+            seguroCampesino,
+            derechoEmision,
+            subtotal,
+            iva,
+            total,
+          },
+        },
+      });
+
+      setResultado({
+        marca, modelo, anio: anioNum,
+        valorVehiculo: valorNum,
+        extrasValor: extrasNum,
+        valorTotal, primaNeta, superBancos,
+        seguroCampesino, derechoEmision, subtotal, iva, total,
+        vehicleId: persisted.vehicle?.id,
+        quoteId: persisted.quote?.id,
+      });
+      setToastMessage("Cotizacion guardada en PostgreSQL.");
+      setShowToast(true);
+    } catch (err: any) {
+      setErrorAnio(err?.message || "No se pudo guardar la cotizacion.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fmt = (n: number) => `$${n.toFixed(2)}`;
@@ -67,6 +111,14 @@ const Cotizador: React.FC = () => {
       </IonHeader>
 
       <IonContent className="ion-padding">
+        <IonToast
+          isOpen={showToast}
+          onDidDismiss={() => setShowToast(false)}
+          message={toastMessage}
+          duration={2500}
+          color="success"
+          position="top"
+        />
         <IonAlert
           isOpen={showAlert}
           onDidDismiss={() => setShowAlert(false)}
@@ -118,8 +170,8 @@ const Cotizador: React.FC = () => {
           </IonItem>
         </IonList>
 
-        <IonButton expand="block" onClick={calcular} style={{ marginTop: 16 }}>
-          Calcular Cotizacion
+        <IonButton expand="block" onClick={calcular} style={{ marginTop: 16 }} disabled={loading}>
+          {loading ? "Guardando Cotizacion..." : "Calcular Cotizacion"}
         </IonButton>
 
         {resultado && (

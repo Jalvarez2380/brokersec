@@ -4,7 +4,7 @@ import {
   IonInput, IonItem, IonLabel, IonText, IonToast,
 } from "@ionic/react";
 import { eye, eyeOff, logIn, personAdd } from "ionicons/icons";
-import { Preferences } from "@capacitor/preferences";
+import { authService } from "../services/auth.service";
 
 const Login: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -28,54 +28,19 @@ const Login: React.FC = () => {
       return;
     }
 
-    // Buscar usuario en localStorage
-    const raw =
-      localStorage.getItem("brokersec_usuario") ||
-      localStorage.getItem("app_kickoff_user");
-
-    if (!raw) {
-      setError("No existe ninguna cuenta registrada. Crea una cuenta primero.");
-      return;
-    }
-
     try {
-      const userData = JSON.parse(raw);
-
-      // Validar usuario y contrasena
-      // La contrasena no se guarda (por seguridad), solo validamos el usuario
-      // Si quieres guardar la contrasena, agrega: password: hashSimple(password)
-      const usuarioValido =
-        userData.usuario?.toLowerCase() === usuario.toLowerCase() ||
-        userData.email?.toLowerCase() === usuario.toLowerCase() ||
-        userData.cedula === usuario;
-
-      if (!usuarioValido) {
-        setError("Usuario o contrasena incorrectos. Verifica tus datos.");
-        return;
-      }
-
       setLoading(true);
-
-      // Guardar sesion
-      localStorage.setItem("app_kickoff_authenticated", "true");
-      localStorage.setItem("app_kickoff_token", "brokersec_" + Date.now());
-      localStorage.setItem("app_kickoff_user", JSON.stringify(userData));
-
-      try {
-        await Preferences.set({ key: "app_kickoff_authenticated", value: "true" });
-        await Preferences.set({ key: "app_kickoff_token", value: "brokersec_" + Date.now() });
-        await Preferences.set({ key: "app_kickoff_user", value: JSON.stringify(userData) });
-      } catch (e) {
-        console.warn("Preferences no disponible:", e);
-      }
+      await authService.signin({
+        username: usuario.trim(),
+        password,
+      });
 
       setShowToast(true);
       setTimeout(() => {
         window.location.href = "/tabs/inicio";
       }, 1200);
-
-    } catch {
-      setError("Error al iniciar sesion. Intenta de nuevo.");
+    } catch (err: any) {
+      setError(err?.message || "Error al iniciar sesion. Intenta de nuevo.");
       setLoading(false);
     }
   };
@@ -123,7 +88,7 @@ const Login: React.FC = () => {
               </IonLabel>
               <IonInput
                 value={usuario}
-                placeholder="Tu usuario, email o cedula"
+                placeholder="Tu usuario o email"
                 onIonInput={(e) => setUsuario(e.detail.value as string)}
                 onKeyUp={(e) => { if (e.key === "Enter") handleLogin(); }}
               />
@@ -184,7 +149,7 @@ const Login: React.FC = () => {
               expand="block"
               fill="outline"
               color="primary"
-              onClick={() => { window.location.href = "/tabs/inicio"; }}
+              onClick={() => { window.location.href = "/register"; }}
               style={{ borderRadius: 10 }}
             >
               <IonIcon icon={personAdd} slot="start" />
@@ -193,7 +158,7 @@ const Login: React.FC = () => {
 
             {/* Nota de ayuda */}
             <p style={{ fontSize: 11, color: "#aaa", textAlign: "center", margin: "14px 0 0" }}>
-              Puedes ingresar con tu <strong>usuario</strong>, <strong>email</strong> o <strong>cedula</strong>
+              Puedes ingresar con tu <strong>usuario</strong> o <strong>email</strong>
             </p>
           </div>
 
