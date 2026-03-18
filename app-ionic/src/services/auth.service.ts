@@ -1,6 +1,6 @@
 /**
- * Servicio de Autenticación
- * Refactorizado con patrón de sgu-mobile
+ * Servicio de Autenticacion
+ * Refactorizado con patron de sgu-mobile
  */
 import api from "../lib/api";
 import { profileData } from "../storage";
@@ -44,31 +44,42 @@ export interface UserData {
 }
 
 /**
- * Iniciar sesión
+ * Iniciar sesion
  */
 async function signin(credentials: Credentials): Promise<UserData> {
   if (!credentials.username || !credentials.password) {
-    throw new Error("Credenciales inválidas");
+    throw new Error("Credenciales invalidas");
   }
 
   try {
-    const data = await api.post<UserData>(
-      "/api/auth/signin",
-      credentials,
-      false, // No requiere autenticación previa
-    );
+    const usernameOrEmail = credentials.username.trim();
+    const payload = usernameOrEmail.includes("@")
+      ? { email: usernameOrEmail, password: credentials.password }
+      : { username: usernameOrEmail, password: credentials.password };
 
-    // Guardar flag de autenticación (el servidor usa cookies de sesión)
+    const res = await fetch(`${API_BASE}/api/auth/signin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "omit",
+      body: JSON.stringify(payload),
+    });
+
+    const data = await res.json().catch(() => ({} as UserData));
+
+    if (!res.ok) {
+      throw new Error(
+        (data as any)?.message || (data as any)?.error || "Error en autenticacion",
+      );
+    }
+
     await Preferences.set({ key: AUTH_KEY, value: "true" });
     localStorage.setItem(AUTH_KEY, "true");
 
-    // Si hay token, guardarlo también
     if (data.token) {
       localStorage.setItem(TOKEN_KEY, data.token);
       await Preferences.set({ key: TOKEN_KEY, value: data.token });
     }
 
-    // Guardar información del usuario en storage
     const normalized = normalizeAppUser(data);
     const userInfo: UserData = {
       id: data.id,
@@ -86,18 +97,15 @@ async function signin(credentials: Credentials): Promise<UserData> {
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(userInfo) });
     await profileData.set(userInfo);
 
-    // Invalidar caché de React Query para que `useProfile` refetch inmediatamente
     try {
       await queryClient.invalidateQueries({ queryKey: ["profile"] });
     } catch (e) {
-      // no bloquear el flujo por fallos de invalidación
       console.warn("queryClient.invalidateQueries failed", e);
     }
 
     return userInfo;
   } catch (err) {
     if (USE_MOCK_FALLBACK) {
-      // Fallback mock para desarrollo sin backend
       await new Promise((r) => setTimeout(r, 300));
       const fakeToken = btoa(`${credentials.username}:token`);
       const mockUser: UserData = {
@@ -110,7 +118,6 @@ async function signin(credentials: Credentials): Promise<UserData> {
       localStorage.setItem(USER_KEY, JSON.stringify(mockUser));
       await profileData.set(mockUser);
 
-      // Invalidar caché en modo mock
       try {
         await queryClient.invalidateQueries({ queryKey: ["profile"] });
       } catch (e) {
@@ -131,7 +138,7 @@ async function signup(userData: RegisterData): Promise<any> {
     const data = await api.post(
       "/api/auth/signup",
       userData,
-      false, // No requiere autenticación
+      false,
     );
     return data;
   } catch (err) {
@@ -144,15 +151,14 @@ async function signup(userData: RegisterData): Promise<any> {
 }
 
 /**
- * Cerrar sesión
+ * Cerrar sesion
  */
 async function signout(): Promise<void> {
   try {
     await api.post("/api/auth/signout", {}, true);
   } catch (err) {
-    console.error("Error al cerrar sesión:", err);
+    console.error("Error al cerrar sesion:", err);
   } finally {
-    // Limpiar todos los datos de sesión
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(AUTH_KEY);
@@ -165,7 +171,7 @@ async function signout(): Promise<void> {
 }
 
 /**
- * Obtener información del usuario actual
+ * Obtener informacion del usuario actual
  */
 async function user(): Promise<UserData | null> {
   try {
@@ -177,7 +183,6 @@ async function user(): Promise<UserData | null> {
       name: normalized?.name || data.name,
     };
 
-    // Actualizar datos en storage
     await profileData.set(mergedData);
     localStorage.setItem(USER_KEY, JSON.stringify(mergedData));
     await Preferences.set({ key: USER_KEY, value: JSON.stringify(mergedData) });
@@ -189,32 +194,20 @@ async function user(): Promise<UserData | null> {
   }
 }
 
-/**
- * Verificar si el usuario está autenticado (sincrónico, usa localStorage)
- */
 function isAuthenticated(): boolean {
   return localStorage.getItem(AUTH_KEY) === "true";
 }
 
-/**
- * Verificar si el usuario está autenticado (asincrónico, usa Preferences)
- */
 async function isAuthenticatedAsync(): Promise<boolean> {
   const { value } = await Preferences.get({ key: AUTH_KEY });
   console.log("Checking AUTH_KEY:", value);
   return value === "true";
 }
 
-/**
- * Obtener token de autenticación
- */
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
 
-/**
- * Obtener usuario actual desde storage local
- */
 function getCurrentUser(): UserData | null {
   const userStr = localStorage.getItem(USER_KEY);
   if (!userStr) return null;
@@ -225,9 +218,6 @@ function getCurrentUser(): UserData | null {
   }
 }
 
-/**
- * Obtener usuario desde storage persistente (Ionic Storage)
- */
 async function getCurrentUserFromStorage(): Promise<UserData | null> {
   try {
     const userData = await profileData.get();
@@ -237,7 +227,6 @@ async function getCurrentUserFromStorage(): Promise<UserData | null> {
   }
 }
 
-// Exportar servicio con estructura similar a sgu-mobile
 export const authService = {
   signin,
   signup,
@@ -250,19 +239,14 @@ export const authService = {
   getCurrentUserFromStorage,
 };
 
-// Exportar funciones individuales para compatibilidad
-// export const login = signin; // Eliminado para evitar duplicidad
 export const register = signup;
 export const logout = signout;
 export { isAuthenticated, getToken, getCurrentUser };
 
-/**
- * Función de login alternativa usando fetch
- */
 export async function login(credentials: { email: string; password: string }) {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
-    credentials: "include",
+    credentials: "omit",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(credentials),
   });

@@ -143,6 +143,11 @@ async function request<T = any>(
     ...extraHeaders,
   };
 
+  if (!requiresAuth) {
+    delete headers.Authorization;
+    delete headers.Cookie;
+  }
+
   // Si requiere autenticación: aceptar token O cookie de sesión
   const token = getToken();
   const hasCookie = !!headers["Cookie"];
