@@ -160,7 +160,7 @@ async function request<T = any>(
       headers,
       data: body,
       webFetchExtra: {
-        credentials: "include", // Para enviar cookies en navegador
+        credentials: requiresAuth ? "include" : "omit",
       },
     });
 
