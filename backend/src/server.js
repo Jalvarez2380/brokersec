@@ -13,6 +13,7 @@ const vehicleRoutes = require('./routes/vehicles');
 const quoteRoutes = require('./routes/quotes');
 const inspectionRoutes = require('./routes/inspections');
 const healthRoutes = require('./routes/health');
+const assistantRoutes = require('./routes/assistant');
 
 const PORT = config.server.port || 3001;
 
@@ -51,6 +52,7 @@ function createApp() {
         quotes: '/api/quotes',
         inspections: '/api/inspections',
         clima: '/api/v1/clima',
+        assistant: '/api/assistant/chat',
       },
     });
   });
@@ -62,6 +64,7 @@ function createApp() {
   app.use('/api/quotes', quoteRoutes);
   app.use('/api/inspections', inspectionRoutes);
   app.use('/api/v1/clima', weatherRoutes);
+  app.use('/api/assistant', assistantRoutes);
 
   app.use((req, res) => {
     res.status(404).json({

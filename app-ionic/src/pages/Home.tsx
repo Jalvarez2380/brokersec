@@ -4,16 +4,17 @@ import {
   IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonButton, IonIcon, IonGrid, IonRow, IonCol,
   IonAccordion, IonAccordionGroup, IonItem, IonLabel,
-  IonBadge, IonChip, IonInput, IonText, IonToast,
+  IonBadge, IonChip, IonInput, IonText, IonToast, IonFab, IonFabButton,
 } from "@ionic/react";
 import {
   calculator, shield, car, call, checkmarkCircle,
   alertCircle, medkit, construct, personAdd, eye, eyeOff,
-  person, logOut,
+  person, logOut, chatbubbles,
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
 import { authService } from "../services/auth.service";
 import { getUserDisplayName, normalizeAppUser } from "../services/user.utils";
+import AssistantModal from "../components/AssistantModal";
 
 const Home: React.FC = () => {
   const history = useHistory();
@@ -57,6 +58,7 @@ const Home: React.FC = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
 
   const inputStyle = { "--background": "#f0f4ff" } as any;
 
@@ -145,6 +147,7 @@ const Home: React.FC = () => {
       </IonHeader>
 
       <IonContent>
+        <AssistantModal isOpen={assistantOpen} onClose={() => setAssistantOpen(false)} />
 
         <IonToast
           isOpen={showToast}
@@ -558,6 +561,12 @@ const Home: React.FC = () => {
             </IonCardContent>
           </IonCard>
         </div>
+
+        <IonFab slot="fixed" vertical="bottom" horizontal="end">
+          <IonFabButton color="tertiary" onClick={() => setAssistantOpen(true)}>
+            <IonIcon icon={chatbubbles} />
+          </IonFabButton>
+        </IonFab>
 
       </IonContent>
     </IonPage>

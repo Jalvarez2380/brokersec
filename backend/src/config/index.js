@@ -59,6 +59,12 @@ module.exports = {
     timeout: 5000, // 5 segundos
   },
 
+  openai: {
+    apiKey: process.env.OPENAI_API_KEY,
+    model: process.env.OPENAI_MODEL || 'gpt-4.1-mini',
+    baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  },
+
   // Seguridad
   security: {
     internalApiKey: process.env.INTERNAL_API_KEY,

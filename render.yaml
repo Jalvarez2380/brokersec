@@ -22,6 +22,10 @@ services:
         generateValue: true
       - key: OPENWEATHER_API_KEY
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
       - key: CORS_ORIGIN
         sync: false
 
