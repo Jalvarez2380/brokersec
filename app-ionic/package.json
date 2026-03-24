@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 3001",
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "ci:build": "npm run typecheck && npm run build",
     "preview": "vite preview",
     "cap:init": "npx cap init app-kick-off com.example.appkickoff --web-dir=dist || true",
     "cap:sync": "npx cap sync",

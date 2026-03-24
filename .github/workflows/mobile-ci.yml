@@ -1,0 +1,49 @@
+name: Mobile CI
+
+on:
+  push:
+    paths:
+      - "app-ionic/**"
+      - ".github/workflows/mobile-ci.yml"
+  pull_request:
+    paths:
+      - "app-ionic/**"
+      - ".github/workflows/mobile-ci.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: app-ionic
+
+    env:
+      VITE_API_BASE: http://localhost:3001
+      VITE_UPDATE_SERVER_URL: https://updates.example.com/api/updates
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app-ionic/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck and build
+        run: npm run ci:build
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Upload web artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-ionic-dist
+          path: app-ionic/dist

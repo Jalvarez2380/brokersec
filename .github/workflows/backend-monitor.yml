@@ -1,0 +1,26 @@
+name: Backend Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate monitoring URL
+        env:
+          BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+        run: |
+          if [ -z "$BACKEND_HEALTHCHECK_URL" ]; then
+            echo "Define el secret BACKEND_HEALTHCHECK_URL para activar el monitoreo."
+            exit 0
+          fi
+
+      - name: Check liveness endpoint
+        env:
+          BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+        run: |
+          curl --fail --silent --show-error --max-time 15 "$BACKEND_HEALTHCHECK_URL"
