@@ -3,7 +3,15 @@ const vehicleRepository = require('../repositories/vehicleRepository');
 class VehicleController {
   async create(req, res, next) {
     try {
-      const { userId, brand, model, year, plate, insuredValue, extrasValue, metadata } = req.body;
+      const { brand, model, year, plate, insuredValue, extrasValue, metadata } = req.body;
+      const userId = req.user?.sub;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no autenticado',
+        });
+      }
 
       if (!brand || !model) {
         return res.status(400).json({
@@ -34,8 +42,9 @@ class VehicleController {
 
   async list(req, res, next) {
     try {
+      const userId = req.user?.sub;
       const vehicles = await vehicleRepository.listVehicles({
-        userId: req.query.userId,
+        userId,
       });
 
       return res.json({
@@ -50,10 +59,10 @@ class VehicleController {
   async getById(req, res, next) {
     try {
       const vehicle = await vehicleRepository.findVehicleById(req.params.id);
-      if (!vehicle) {
+      if (!vehicle || vehicle.userId !== req.user?.sub) {
         return res.status(404).json({
           success: false,
-          message: 'Vehículo no encontrado',
+          message: 'Vehiculo no encontrado',
         });
       }
 

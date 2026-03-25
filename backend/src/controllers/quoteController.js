@@ -4,7 +4,6 @@ class QuoteController {
   async create(req, res, next) {
     try {
       const {
-        userId,
         vehicleId,
         city,
         country,
@@ -16,6 +15,14 @@ class QuoteController {
         totalPremium,
         payload,
       } = req.body;
+      const userId = req.user?.sub;
+
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Usuario no autenticado',
+        });
+      }
 
       const quote = await quoteRepository.createQuote({
         userId,
@@ -42,8 +49,9 @@ class QuoteController {
 
   async list(req, res, next) {
     try {
+      const userId = req.user?.sub;
       const quotes = await quoteRepository.listQuotes({
-        userId: req.query.userId,
+        userId,
         vehicleId: req.query.vehicleId,
       });
 
@@ -59,10 +67,10 @@ class QuoteController {
   async getById(req, res, next) {
     try {
       const quote = await quoteRepository.findQuoteById(req.params.id);
-      if (!quote) {
+      if (!quote || quote.userId !== req.user?.sub) {
         return res.status(404).json({
           success: false,
-          message: 'Cotización no encontrada',
+          message: 'Cotizacion no encontrada',
         });
       }
 

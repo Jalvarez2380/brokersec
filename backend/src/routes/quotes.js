@@ -1,10 +1,11 @@
 const express = require('express');
 const quoteController = require('../controllers/quoteController');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/', quoteController.create);
-router.get('/', quoteController.list);
-router.get('/:id', quoteController.getById);
+router.post('/', authenticateToken, quoteController.create);
+router.get('/', authenticateToken, quoteController.list);
+router.get('/:id', authenticateToken, quoteController.getById);
 
 module.exports = router;

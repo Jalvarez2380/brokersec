@@ -47,7 +47,6 @@ export async function createVehicleAndQuote(
   const vehicleResponse = await api.post<{ success: boolean; data: any }>(
     "/api/vehicles",
     {
-      userId: user.id,
       brand: input.brand,
       model: input.model,
       year: input.year,
@@ -56,7 +55,7 @@ export async function createVehicleAndQuote(
       extrasValue: input.extrasValue || 0,
       metadata: input.payload?.vehicleMetadata || {},
     },
-    false,
+    true,
   );
 
   const vehicle = vehicleResponse.data;
@@ -64,7 +63,6 @@ export async function createVehicleAndQuote(
   const quoteResponse = await api.post<{ success: boolean; data: any }>(
     "/api/quotes",
     {
-      userId: user.id,
       vehicleId: vehicle?.id,
       city: input.city || "Quito",
       country: input.country || "EC",
@@ -76,7 +74,7 @@ export async function createVehicleAndQuote(
       totalPremium: input.totalPremium,
       payload: input.payload || {},
     },
-    false,
+    true,
   );
 
   return {
