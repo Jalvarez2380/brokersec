@@ -82,7 +82,7 @@ export async function apiRequest<T = any>(
     const response = await fetch(url, {
       method,
       headers: requestHeaders,
-      credentials: "include",
+      credentials: "omit",
       body: body ? JSON.stringify(body) : undefined,
     });
 
