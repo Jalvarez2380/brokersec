@@ -18,7 +18,7 @@ import { Route, Redirect } from "react-router-dom";
 
 const RouteComp: any = Route as any;
 const RedirectComp: any = Redirect as any;
-import { home, person, calculator } from "ionicons/icons";
+import { home, person, calculator, people } from "ionicons/icons";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { Capacitor } from "@capacitor/core";
@@ -30,10 +30,13 @@ import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Cotizador from "./pages/Cotizador";
+import Users from "./pages/Users";
 import { authService } from "./services/auth.service";
 import { initStorage } from "./storage";
 import { updateService } from "./services/update.service";
 import { USE_MOCK_FALLBACK } from "./config";
+import { normalizeAppUser, hasRole } from "./services/user.utils";
+import { COTIZADOR_ROLES, USER_MANAGEMENT_ROLES } from "./constants/roles";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -66,6 +69,7 @@ const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<string | undefined>();
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const setupStatusBar = async () => {
     if (Capacitor.isNativePlatform()) {
@@ -132,6 +136,17 @@ const App: React.FC = () => {
 
         console.log("Auth check (MOCK:", USE_MOCK_FALLBACK, "):", authenticated);
         setIsAuthenticated(authenticated);
+        const storedUser = normalizeAppUser(authService.getCurrentUser());
+        if (storedUser) {
+          setCurrentUser(storedUser);
+        }
+
+        if (authenticated) {
+          const apiUser = normalizeAppUser(await authService.user());
+          if (apiUser) {
+            setCurrentUser(apiUser);
+          }
+        }
 
         setupBackButton();
         checkForUpdates();
@@ -176,6 +191,9 @@ const App: React.FC = () => {
     );
   }
 
+  const canUseCotizador = hasRole(currentUser, COTIZADOR_ROLES);
+  const canManageUsers = hasRole(currentUser, USER_MANAGEMENT_ROLES);
+
   return (
     <QueryClientProvider client={queryClient}>
       <IonApp>
@@ -203,7 +221,12 @@ const App: React.FC = () => {
                   <IonRouterOutlet>
                     <RouteComp exact path="/tabs/inicio" component={Home} />
                     <RouteComp exact path="/tabs/perfil" component={Profile} />
-                    <RouteComp exact path="/tabs/cotizador" component={Cotizador} />
+                    <RouteComp exact path="/tabs/cotizador">
+                      {canUseCotizador ? <Cotizador /> : <RedirectComp to="/tabs/inicio" />}
+                    </RouteComp>
+                    <RouteComp exact path="/tabs/usuarios">
+                      {canManageUsers ? <Users /> : <RedirectComp to="/tabs/inicio" />}
+                    </RouteComp>
                     <RouteComp exact path="/tabs">
                       <RedirectComp to="/tabs/inicio" />
                     </RouteComp>
@@ -213,10 +236,18 @@ const App: React.FC = () => {
                       <IonIcon icon={home} />
                       <IonLabel>Inicio</IonLabel>
                     </IonTabButton>
-                    <IonTabButton tab="cotizador" href="/tabs/cotizador">
-                      <IonIcon icon={calculator} />
-                      <IonLabel>Cotizador</IonLabel>
-                    </IonTabButton>
+                    {canUseCotizador && (
+                      <IonTabButton tab="cotizador" href="/tabs/cotizador">
+                        <IonIcon icon={calculator} />
+                        <IonLabel>Cotizador</IonLabel>
+                      </IonTabButton>
+                    )}
+                    {canManageUsers && (
+                      <IonTabButton tab="usuarios" href="/tabs/usuarios">
+                        <IonIcon icon={people} />
+                        <IonLabel>Usuarios</IonLabel>
+                      </IonTabButton>
+                    )}
                     <IonTabButton tab="perfil" href="/tabs/perfil">
                       <IonIcon icon={person} />
                       <IonLabel>Perfil</IonLabel>

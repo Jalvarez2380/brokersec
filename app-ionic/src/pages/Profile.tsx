@@ -14,6 +14,7 @@ import { cameraService, EvidencePhoto } from "../services/camera.service";
 import { evidenceData } from "../storage";
 import { authService } from "../services/auth.service";
 import { createVehicleAndQuote } from "../services/quote.service";
+import { ROLE_LABELS } from "../constants/roles";
 
 interface Usuario {
   id?: number;
@@ -23,6 +24,7 @@ interface Usuario {
   telefono: string;
   cedula: string;
   usuario: string;
+  role?: string;
 }
 
 interface Vehiculo {
@@ -70,6 +72,7 @@ const Profile: React.FC = () => {
           telefono: (currentUser as any).mobile || "",
           cedula: currentUser.dni || "",
           usuario: currentUser.username,
+          role: currentUser.role,
         });
       }
     };
@@ -295,7 +298,9 @@ const Profile: React.FC = () => {
                     <p style={{ fontSize: 12, color: "#555", margin: "2px 0 0" }}>{usuario.email}</p>
                     <p style={{ fontSize: 12, color: "#555", margin: 0 }}>{usuario.telefono}</p>
                   </div>
-                  <IonBadge color="success" style={{ fontSize: 11 }}>Cliente Activo</IonBadge>
+                  <IonBadge color="success" style={{ fontSize: 11 }}>
+                    {ROLE_LABELS[usuario.role || "usuario"] || "Usuario"}
+                  </IonBadge>
                 </div>
               </IonCardContent>
             </IonCard>

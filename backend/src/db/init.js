@@ -17,19 +17,24 @@ async function initializeDatabase() {
     await query(statement);
   }
 
-  await ensureSeedAdmin();
+  await ensureSeedUsers();
 }
 
-async function ensureSeedAdmin() {
-  const admin = config.seedAdmin;
-  const passwordHash = await bcrypt.hash(admin.password, config.bcrypt.saltRounds);
+async function ensureSeedUsers() {
+  for (const seedUser of config.seedUsers) {
+    await upsertSeedUser(seedUser);
+  }
+}
+
+async function upsertSeedUser(seedUser) {
+  const passwordHash = await bcrypt.hash(seedUser.password, config.bcrypt.saltRounds);
 
   const existing = await query(
     `SELECT id
      FROM users
      WHERE username = $1 OR email = $2 OR dni = $3
      LIMIT 1`,
-    [admin.username, admin.email, admin.dni]
+    [seedUser.username, seedUser.email, seedUser.dni]
   );
 
   if (existing.rows[0]) {
@@ -46,14 +51,14 @@ async function ensureSeedAdmin() {
            updated_at = NOW()
        WHERE id = $9`,
       [
-        admin.dni,
-        admin.firstName,
-        admin.lastName,
-        admin.email,
-        admin.username,
+        seedUser.dni,
+        seedUser.firstName,
+        seedUser.lastName,
+        seedUser.email,
+        seedUser.username,
         passwordHash,
-        admin.mobile,
-        admin.role,
+        seedUser.mobile,
+        seedUser.role,
         existing.rows[0].id,
       ]
     );
@@ -64,14 +69,14 @@ async function ensureSeedAdmin() {
     `INSERT INTO users (dni, first_name, last_name, email, username, password_hash, mobile, role)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [
-      admin.dni,
-      admin.firstName,
-      admin.lastName,
-      admin.email,
-      admin.username,
+      seedUser.dni,
+      seedUser.firstName,
+      seedUser.lastName,
+      seedUser.email,
+      seedUser.username,
       passwordHash,
-      admin.mobile,
-      admin.role,
+      seedUser.mobile,
+      seedUser.role,
     ]
   );
 }

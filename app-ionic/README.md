@@ -31,6 +31,7 @@ Descripción rápida
 - `src/services/auth.ts`: servicio de autenticación simulado (usa `localStorage`).
 - `src/pages/Home.tsx`: ruta protegida ejemplo.
 - `capacitor.config.ts`: configuración mínima de Capacitor.
+- `src/pages/Users.tsx`: gestión de usuarios y roles, visible solo para administradores.
 
 Siguientes pasos
 
@@ -53,6 +54,12 @@ npm run cap:init   # solo la primera vez
 npm run cap:sync
 npm run cap:open:android
 ```
+
+Roles disponibles
+
+- `admin`: acceso a cotizador, perfil y gestión de usuarios.
+- `ventas`: acceso a inicio, cotizador y perfil.
+- `usuario`: acceso a inicio y perfil.
 
 # App Kick Off — Mini Login con Ionic + Capacitor
 

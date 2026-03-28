@@ -37,3 +37,8 @@ export function getUserDisplayName(user: AppUser | null): string {
   if (!user) return "";
   return user.name || `${user.firstName || ""} ${user.lastName || ""}`.trim();
 }
+
+export function hasRole(user: AppUser | null, allowedRoles: string[]): boolean {
+  if (!user?.role) return false;
+  return allowedRoles.includes(user.role);
+}

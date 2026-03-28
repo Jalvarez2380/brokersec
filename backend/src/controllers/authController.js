@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const userRepository = require('../repositories/userRepository');
+const { normalizeRole, USER_ROLES } = require('../config/roles');
 
 function normalizeSignupBody(body = {}) {
   return {
@@ -12,6 +13,7 @@ function normalizeSignupBody(body = {}) {
     username: body.username || body.usuario,
     password: body.password,
     mobile: body.mobile || body.telefono,
+    role: normalizeRole(body.role),
   };
 }
 
@@ -36,7 +38,7 @@ class AuthController {
   async signup(req, res, next) {
     try {
       const payload = normalizeSignupBody(req.body);
-      const { dni, firstName, lastName, email, username, password, mobile } = payload;
+      const { dni, firstName, lastName, email, username, password, mobile, role } = payload;
 
       if (!dni || !firstName || !lastName || !email || !username || !password) {
         return res.status(400).json({
@@ -64,6 +66,7 @@ class AuthController {
         username,
         passwordHash,
         mobile,
+        role: req.user?.role === USER_ROLES.ADMIN ? role : USER_ROLES.USER,
       });
 
       return res.status(201).json({

@@ -13,8 +13,9 @@ import {
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
 import { authService } from "../services/auth.service";
-import { getUserDisplayName, normalizeAppUser } from "../services/user.utils";
+import { getUserDisplayName, hasRole, normalizeAppUser } from "../services/user.utils";
 import AssistantModal from "../components/AssistantModal";
+import { COTIZADOR_ROLES, ROLE_LABELS } from "../constants/roles";
 
 const Home: React.FC = () => {
   const history = useHistory();
@@ -59,6 +60,7 @@ const Home: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const canUseCotizador = hasRole(usuarioActual, COTIZADOR_ROLES);
 
   const inputStyle = { "--background": "#f0f4ff" } as any;
 
@@ -170,10 +172,14 @@ const Home: React.FC = () => {
           <p style={{ margin: "0 0 14px", fontSize: 13, opacity: 0.9 }}>
             Seguro Inteligente para tu vehiculo en Ecuador
           </p>
-          <IonButton color="light" size="small" onClick={() => history.push("/tabs/cotizador")}>
-            <IonIcon icon={calculator} slot="start" />
-            Cotizar ahora
-          </IonButton>
+          {canUseCotizador ? (
+            <IonButton color="light" size="small" onClick={() => history.push("/tabs/cotizador")}>
+              <IonIcon icon={calculator} slot="start" />
+              Cotizar ahora
+            </IonButton>
+          ) : (
+            <IonBadge color="light">{ROLE_LABELS[usuarioActual?.role || "usuario"] || "Usuario"}</IonBadge>
+          )}
         </div>
 
         {/* ===== VIDEO CORPORATIVO ===== */}
@@ -216,7 +222,9 @@ const Home: React.FC = () => {
                     <p style={{ fontWeight: "bold", fontSize: 16, margin: 0 }}>
                       {getUserDisplayName(usuarioActual)}
                     </p>
-                    <IonBadge color="success" style={{ fontSize: 10 }}>Cliente Activo</IonBadge>
+                    <IonBadge color="success" style={{ fontSize: 10 }}>
+                      {ROLE_LABELS[usuarioActual.role || "usuario"] || "Usuario"}
+                    </IonBadge>
                   </div>
                 </div>
 
@@ -240,10 +248,17 @@ const Home: React.FC = () => {
                 <IonGrid style={{ padding: 0 }}>
                   <IonRow>
                     <IonCol size="8" style={{ paddingLeft: 0, paddingRight: 4 }}>
-                      <IonButton expand="block" onClick={() => history.push("/tabs/cotizador")}>
-                        <IonIcon icon={calculator} slot="start" />
-                        Ir al Cotizador
-                      </IonButton>
+                      {canUseCotizador ? (
+                        <IonButton expand="block" onClick={() => history.push("/tabs/cotizador")}>
+                          <IonIcon icon={calculator} slot="start" />
+                          Ir al Cotizador
+                        </IonButton>
+                      ) : (
+                        <IonButton expand="block" fill="outline" onClick={() => history.push("/tabs/perfil")}>
+                          <IonIcon icon={person} slot="start" />
+                          Ver Perfil
+                        </IonButton>
+                      )}
                     </IonCol>
                     <IonCol size="4" style={{ paddingRight: 0, paddingLeft: 4 }}>
                       <IonButton expand="block" color="medium" fill="outline" onClick={handleLogout}>
@@ -409,7 +424,7 @@ const Home: React.FC = () => {
           <IonGrid style={{ padding: 0 }}>
             <IonRow>
               {[
-                { icon: calculator, color: "primary",  label: "Cotizar Seguro",  action: () => history.push("/tabs/cotizador") },
+                { icon: calculator, color: "primary",  label: canUseCotizador ? "Cotizar Seguro" : "Mi Perfil",  action: () => history.push(canUseCotizador ? "/tabs/cotizador" : "/tabs/perfil") },
                 { icon: shield,     color: "success",  label: "Mis Polizas",     action: () => {} },
                 { icon: car,        color: "warning",  label: "Mis Vehiculos",   action: () => {} },
                 { icon: call,       color: "danger",   label: "Contacto 24/7",   action: () => {} },

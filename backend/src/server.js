@@ -90,7 +90,11 @@ async function startServer() {
     console.log('============================================');
     console.log(`Servidor en: http://127.0.0.1:${PORT}`);
     console.log(`DB: postgresql://${config.database.user}@${config.database.host}:${config.database.port}/${config.database.name}`);
-    console.log(`Admin seed: usuario=${config.seedAdmin.username} | email=${config.seedAdmin.email} | password=${config.seedAdmin.password}`);
+    config.seedUsers.forEach((seedUser) => {
+      console.log(
+        `Seed ${seedUser.role}: usuario=${seedUser.username} | email=${seedUser.email} | password=${seedUser.password}`
+      );
+    });
     console.log('============================================');
   });
 }

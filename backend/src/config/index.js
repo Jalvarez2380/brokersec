@@ -3,6 +3,7 @@
 // ============================================
 
 require('dotenv').config();
+const { USER_ROLES } = require('./roles');
 
 const dbHost = process.env.DB_HOST || 'localhost';
 const dbPort = parseInt(process.env.DB_PORT, 10) || 5433;
@@ -70,14 +71,36 @@ module.exports = {
     internalApiKey: process.env.INTERNAL_API_KEY,
   },
 
-  seedAdmin: {
-    dni: process.env.SEED_ADMIN_DNI || '9999999999',
-    firstName: process.env.SEED_ADMIN_FIRST_NAME || 'Admin',
-    lastName: process.env.SEED_ADMIN_LAST_NAME || 'Brokersec',
-    email: process.env.SEED_ADMIN_EMAIL || 'admin@brokersec.local',
-    username: process.env.SEED_ADMIN_USERNAME || 'admin',
-    password: process.env.SEED_ADMIN_PASSWORD || 'Admin123*',
-    mobile: process.env.SEED_ADMIN_MOBILE || '0999999999',
-    role: process.env.SEED_ADMIN_ROLE || 'admin',
-  },
+  seedUsers: [
+    {
+      dni: process.env.SEED_ADMIN_DNI || '9999999999',
+      firstName: process.env.SEED_ADMIN_FIRST_NAME || 'Admin',
+      lastName: process.env.SEED_ADMIN_LAST_NAME || 'Brokersec',
+      email: process.env.SEED_ADMIN_EMAIL || 'admin@brokersec.local',
+      username: process.env.SEED_ADMIN_USERNAME || 'admin',
+      password: process.env.SEED_ADMIN_PASSWORD || 'Admin123*',
+      mobile: process.env.SEED_ADMIN_MOBILE || '0999999999',
+      role: process.env.SEED_ADMIN_ROLE || USER_ROLES.ADMIN,
+    },
+    {
+      dni: process.env.SEED_SALES_DNI || '8888888888',
+      firstName: process.env.SEED_SALES_FIRST_NAME || 'Ventas',
+      lastName: process.env.SEED_SALES_LAST_NAME || 'Brokersec',
+      email: process.env.SEED_SALES_EMAIL || 'ventas@brokersec.local',
+      username: process.env.SEED_SALES_USERNAME || 'ventas',
+      password: process.env.SEED_SALES_PASSWORD || 'Ventas123*',
+      mobile: process.env.SEED_SALES_MOBILE || '0988888888',
+      role: process.env.SEED_SALES_ROLE || USER_ROLES.SALES,
+    },
+    {
+      dni: process.env.SEED_USER_DNI || '7777777777',
+      firstName: process.env.SEED_USER_FIRST_NAME || 'Cliente',
+      lastName: process.env.SEED_USER_LAST_NAME || 'Brokersec',
+      email: process.env.SEED_USER_EMAIL || 'usuario@brokersec.local',
+      username: process.env.SEED_USER_USERNAME || 'usuario',
+      password: process.env.SEED_USER_PASSWORD || 'Usuario123*',
+      mobile: process.env.SEED_USER_MOBILE || '0977777777',
+      role: process.env.SEED_USER_ROLE || USER_ROLES.USER,
+    },
+  ],
 };
