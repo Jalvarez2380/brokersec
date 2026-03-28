@@ -8,6 +8,7 @@ export interface AppUser {
   mobile?: string;
   name?: string;
   role?: string;
+  roles?: string[];
 }
 
 export function normalizeAppUser(raw: any): AppUser | null {
@@ -30,6 +31,7 @@ export function normalizeAppUser(raw: any): AppUser | null {
     mobile: raw.mobile || raw.telefono,
     name: raw.name || `${firstName} ${lastName}`.trim(),
     role: raw.role,
+    roles: Array.isArray(raw.roles) ? raw.roles : raw.role ? [raw.role] : [],
   };
 }
 
@@ -39,6 +41,6 @@ export function getUserDisplayName(user: AppUser | null): string {
 }
 
 export function hasRole(user: AppUser | null, allowedRoles: string[]): boolean {
-  if (!user?.role) return false;
-  return allowedRoles.includes(user.role);
+  const roles = user?.roles?.length ? user.roles : user?.role ? [user.role] : [];
+  return roles.some((role) => allowedRoles.includes(role));
 }

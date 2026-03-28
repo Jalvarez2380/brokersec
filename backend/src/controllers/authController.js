@@ -28,6 +28,7 @@ function buildUserResponse(userRow, token) {
     firstName: user.firstName,
     lastName: user.lastName,
     role: user.role,
+    roles: user.roles || (user.role ? [user.role] : []),
     dni: user.dni,
     mobile: user.mobile,
     token,

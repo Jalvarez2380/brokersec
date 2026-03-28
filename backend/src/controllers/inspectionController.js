@@ -3,7 +3,7 @@ const inspectionRepository = require('../repositories/inspectionRepository');
 class InspectionController {
   async create(req, res, next) {
     try {
-      const { userId, vehicleId, quoteId, status, notes, scheduledAt, evidences } = req.body;
+      const { userId, vehicleId, quoteId, status, notes, scheduledAt, location, evidences } = req.body;
 
       const inspection = await inspectionRepository.createInspection({
         userId,
@@ -12,6 +12,7 @@ class InspectionController {
         status,
         notes,
         scheduledAt,
+        location,
         evidences: Array.isArray(evidences) ? evidences : [],
       });
 

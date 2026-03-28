@@ -8,13 +8,15 @@ import {
 } from "@ionic/react";
 import {
   documentText, mail, print, calculator,
-  car, checkmarkCircle, alertCircle, download, camera, trash,
+  car, checkmarkCircle, alertCircle, download, camera, trash, locate, pulse,
 } from "ionicons/icons";
 import { cameraService, EvidencePhoto } from "../services/camera.service";
 import { evidenceData } from "../storage";
 import { authService } from "../services/auth.service";
 import { createVehicleAndQuote } from "../services/quote.service";
 import { ROLE_LABELS } from "../constants/roles";
+import { CapturedLocation, locationService, LocationWatcher } from "../services/location.service";
+import { createInspection } from "../services/inspection.service";
 
 interface Usuario {
   id?: number;
@@ -42,6 +44,17 @@ interface EvidenceState {
   document?: EvidencePhoto;
 }
 
+function formatLocation(location: CapturedLocation | null): string {
+  if (!location) return "Ubicacion no capturada";
+
+  const accuracy =
+    typeof location.accuracy === "number"
+      ? `Precision aprox. ${location.accuracy.toFixed(0)} m`
+      : "Precision no disponible";
+
+  return `${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)} | ${accuracy}`;
+}
+
 const Profile: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +70,9 @@ const Profile: React.FC = () => {
   const [evidence, setEvidence] = useState<EvidenceState>({});
   const [capturingType, setCapturingType] = useState<keyof EvidenceState | null>(null);
   const [savingQuote, setSavingQuote] = useState(false);
+  const [inspectionLocation, setInspectionLocation] = useState<CapturedLocation | null>(null);
+  const [trackingLocation, setTrackingLocation] = useState(false);
+  const [watcherId, setWatcherId] = useState<LocationWatcher | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -93,6 +109,14 @@ const Profile: React.FC = () => {
     loadEvidence();
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (watcherId !== null) {
+        locationService.clearWatch(watcherId);
+      }
+    };
+  }, [watcherId]);
+
   const showFeedback = (message: string, color = "success") => {
     setToastMsg(message);
     setToastColor(color);
@@ -124,6 +148,56 @@ const Profile: React.FC = () => {
       showFeedback("Evidencia eliminada.");
     } catch (storageError) {
       showFeedback("No se pudo eliminar la evidencia.", "danger");
+    }
+  };
+
+  const handleCaptureLocation = async () => {
+    try {
+      const location = await locationService.getCurrentLocation();
+      setInspectionLocation(location);
+      showFeedback("Ubicacion capturada correctamente.");
+    } catch (captureError) {
+      const message =
+        captureError instanceof Error
+          ? captureError.message
+          : "No se pudo capturar la ubicacion.";
+      showFeedback(message, "danger");
+    }
+  };
+
+  const toggleLocationTracking = async () => {
+    if (trackingLocation) {
+      if (watcherId !== null) {
+        locationService.clearWatch(watcherId);
+      }
+      setWatcherId(null);
+      setTrackingLocation(false);
+      showFeedback("Seguimiento de ubicacion detenido.", "medium");
+      return;
+    }
+
+    try {
+      const initialLocation = await locationService.getCurrentLocation();
+      setInspectionLocation(initialLocation);
+
+      const nextWatcherId = locationService.watchLocation(
+        (location) => {
+          setInspectionLocation(location);
+        },
+        (message) => {
+          showFeedback(message, "danger");
+        },
+      );
+
+      setWatcherId(nextWatcherId);
+      setTrackingLocation(true);
+      showFeedback("Seguimiento de ubicacion activado.");
+    } catch (trackingError) {
+      const message =
+        trackingError instanceof Error
+          ? trackingError.message
+          : "No se pudo iniciar el seguimiento de ubicacion.";
+      showFeedback(message, "danger");
     }
   };
 
@@ -172,9 +246,41 @@ const Profile: React.FC = () => {
         },
       });
 
+      const inspection = await createInspection({
+        userId: usuario?.id,
+        vehicleId: persisted.vehicle?.id,
+        quoteId: persisted.quote?.id,
+        status: "pending",
+        notes: "Inspeccion generada desde la app movil.",
+        location: inspectionLocation,
+        evidences: [
+          evidence.vehicle
+            ? {
+                type: evidence.vehicle.type,
+                label: evidence.vehicle.label,
+                dataUrl: evidence.vehicle.dataUrl,
+                metadata: {
+                  createdAt: evidence.vehicle.createdAt,
+                },
+              }
+            : null,
+          evidence.document
+            ? {
+                type: evidence.document.type,
+                label: evidence.document.label,
+                dataUrl: evidence.document.dataUrl,
+                metadata: {
+                  createdAt: evidence.document.createdAt,
+                },
+              }
+            : null,
+        ].filter(Boolean) as any[],
+      });
+
       setCotizacion({
         id: persisted.quote?.id,
         vehicleId: persisted.vehicle?.id,
+        inspectionId: inspection?.id,
         fecha: new Date().toLocaleDateString("es-EC", { day: "numeric", month: "long", year: "numeric" }),
         usuario,
         vehiculo: { ...vehiculo },
@@ -189,8 +295,9 @@ const Profile: React.FC = () => {
         iva: iva.toFixed(2),
         primaTotal: primaTotal.toFixed(2),
         cuotaMensual: cuotaMensual.toFixed(2),
+        location: inspectionLocation,
       });
-      showFeedback("Cotizacion guardada en PostgreSQL.");
+      showFeedback("Cotizacion e inspeccion guardadas en PostgreSQL.");
     } catch (err: any) {
       setError(err?.message || "No se pudo guardar la cotizacion.");
     } finally {
@@ -322,6 +429,35 @@ const Profile: React.FC = () => {
               <p style={{ fontSize: 12, color: "#555", marginTop: 0 }}>
                 Captura evidencia visual para respaldar la cotizacion y facilitar la inspeccion del cliente.
               </p>
+              <div
+                style={{
+                  background: "#eef6ff",
+                  border: "1px solid #d8e8ff",
+                  borderRadius: 12,
+                  padding: 12,
+                  marginBottom: 16,
+                }}
+              >
+                <p style={{ fontWeight: "bold", color: "#1a73e8", margin: "0 0 6px" }}>
+                  Ubicacion de la inspeccion
+                </p>
+                <p style={{ fontSize: 12, color: "#555", margin: "0 0 10px" }}>
+                  Guarda la ubicacion actual o activa seguimiento en tiempo real para registrar donde se realiza la inspeccion.
+                </p>
+                <p style={{ fontSize: 12, margin: "0 0 10px" }}>
+                  {formatLocation(inspectionLocation)}
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <IonButton size="small" onClick={handleCaptureLocation}>
+                    <IonIcon icon={locate} slot="start" />
+                    Capturar ubicacion
+                  </IonButton>
+                  <IonButton size="small" fill={trackingLocation ? "solid" : "outline"} color={trackingLocation ? "success" : "medium"} onClick={toggleLocationTracking}>
+                    <IonIcon icon={pulse} slot="start" />
+                    {trackingLocation ? "Detener seguimiento" : "Tiempo real"}
+                  </IonButton>
+                </div>
+              </div>
               <IonGrid style={{ padding: 0 }}>
                 <IonRow>
                   {[
@@ -564,6 +700,11 @@ const Profile: React.FC = () => {
                       <p style={{ fontSize: 12, margin: 0 }}>
                         Foto de la cedula: <strong>{cotizacion.evidencia?.cedula ? "Adjunta" : "Pendiente"}</strong>
                       </p>
+                      {cotizacion.location && (
+                        <p style={{ fontSize: 12, margin: "4px 0 0" }}>
+                          Ubicacion: <strong>{cotizacion.location.latitude.toFixed(6)}, {cotizacion.location.longitude.toFixed(6)}</strong>
+                        </p>
+                      )}
                     </div>
 
                     {/* Datos vehiculo */}

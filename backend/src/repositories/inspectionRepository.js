@@ -24,21 +24,41 @@ function mapInspection(row) {
     status: row.status,
     notes: row.notes,
     scheduledAt: row.scheduled_at,
+    location: row.latitude !== null && row.longitude !== null ? {
+      latitude: Number(row.latitude),
+      longitude: Number(row.longitude),
+      accuracy: row.location_accuracy !== null ? Number(row.location_accuracy) : null,
+      capturedAt: row.location_captured_at,
+    } : null,
     createdAt: row.created_at,
   };
 }
 
-async function createInspection({ userId, vehicleId, quoteId, status, notes, scheduledAt, evidences = [] }) {
+async function createInspection({ userId, vehicleId, quoteId, status, notes, scheduledAt, location, evidences = [] }) {
   const client = await getClient();
 
   try {
     await client.query('BEGIN');
 
     const inspectionResult = await client.query(
-      `INSERT INTO inspections (user_id, vehicle_id, quote_id, status, notes, scheduled_at)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO inspections (
+         user_id, vehicle_id, quote_id, status, notes, scheduled_at,
+         latitude, longitude, location_accuracy, location_captured_at
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [userId || null, vehicleId || null, quoteId || null, status || 'pending', notes || null, scheduledAt || null]
+      [
+        userId || null,
+        vehicleId || null,
+        quoteId || null,
+        status || 'pending',
+        notes || null,
+        scheduledAt || null,
+        location?.latitude ?? null,
+        location?.longitude ?? null,
+        location?.accuracy ?? null,
+        location?.capturedAt || null,
+      ]
     );
 
     const inspection = inspectionResult.rows[0];
