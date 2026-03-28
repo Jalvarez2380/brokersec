@@ -12,20 +12,17 @@ const OVERRIDE_IOS = import.meta.env.VITE_API_URL_IOS;
 // @ts-ignore
 const OVERRIDE_ANDROID = import.meta.env.VITE_API_URL_ANDROID;
 
-const RENDER_BACKEND_URL = "https://brokersec-backend.onrender.com";
-const DEV = import.meta.env.DEV;
-
 function resolveWebApiBase(): string {
   if (ENV_API_URL || LEGACY_API_BASE) {
     return ENV_API_URL || LEGACY_API_BASE;
   }
 
-  if (DEV && typeof window !== "undefined") {
+  if (typeof window !== "undefined") {
     const hostname = window.location.hostname || "127.0.0.1";
     return `http://${hostname}:3001`;
   }
 
-  return RENDER_BACKEND_URL;
+  return "http://127.0.0.1:3001";
 }
 
 function resolveApiBase(): string {
@@ -50,7 +47,7 @@ function resolveApiBase(): string {
     console.debug("resolveApiBase: unable to detect Capacitor platform", e);
   }
 
-  // En web, durante desarrollo usar el mismo host del navegador en el puerto 3001.
+  // En web, usar siempre el backend local configurado para PostgreSQL.
   return resolveWebApiBase();
 }
 
