@@ -13,7 +13,20 @@ const OVERRIDE_IOS = import.meta.env.VITE_API_URL_IOS;
 const OVERRIDE_ANDROID = import.meta.env.VITE_API_URL_ANDROID;
 
 const RENDER_BACKEND_URL = "https://brokersec-backend.onrender.com";
-const DEFAULT_WEB = ENV_API_URL || LEGACY_API_BASE || RENDER_BACKEND_URL;
+const DEV = import.meta.env.DEV;
+
+function resolveWebApiBase(): string {
+  if (ENV_API_URL || LEGACY_API_BASE) {
+    return ENV_API_URL || LEGACY_API_BASE;
+  }
+
+  if (DEV && typeof window !== "undefined") {
+    const hostname = window.location.hostname || "127.0.0.1";
+    return `http://${hostname}:3001`;
+  }
+
+  return RENDER_BACKEND_URL;
+}
 
 function resolveApiBase(): string {
   try {
@@ -37,9 +50,8 @@ function resolveApiBase(): string {
     console.debug("resolveApiBase: unable to detect Capacitor platform", e);
   }
 
-  // En web, usar Render por defecto para evitar fallos de conexion
-  // cuando la app se ejecuta en otra IP local.
-  return DEFAULT_WEB;
+  // En web, durante desarrollo usar el mismo host del navegador en el puerto 3001.
+  return resolveWebApiBase();
 }
 
 export const API_BASE = resolveApiBase();

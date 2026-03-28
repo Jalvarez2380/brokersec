@@ -41,7 +41,9 @@ Siguientes pasos
 Mobile-only y HTTP
 
 - La app está preparada para bloquear la UI web y mostrar un mensaje si se abre en un navegador estándar (usa Capacitor para detectar la plataforma).
-- Las peticiones al backend usan HTTP por defecto. Ajusta `src/config.ts` o la variable `VITE_API_BASE` si necesitas otra dirección. Para emulador Android, suele usarse `http://10.0.2.2:3000`.
+- En desarrollo web, si no defines `VITE_API_URL`, el frontend usa automáticamente `http://<host-del-navegador>:3001`. Esto permite probar desde `localhost` o desde una IP LAN contra el backend local.
+- Si necesitas forzar otra dirección, crea un `.env.local` basado en `.env.example`.
+- Para emulador Android, suele usarse `http://10.0.2.2:3001`.
 
 Ejecutar en desarrollo (emulador o dispositivo)
 
