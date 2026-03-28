@@ -69,4 +69,15 @@ module.exports = {
   security: {
     internalApiKey: process.env.INTERNAL_API_KEY,
   },
+
+  seedAdmin: {
+    dni: process.env.SEED_ADMIN_DNI || '9999999999',
+    firstName: process.env.SEED_ADMIN_FIRST_NAME || 'Admin',
+    lastName: process.env.SEED_ADMIN_LAST_NAME || 'Brokersec',
+    email: process.env.SEED_ADMIN_EMAIL || 'admin@brokersec.local',
+    username: process.env.SEED_ADMIN_USERNAME || 'admin',
+    password: process.env.SEED_ADMIN_PASSWORD || 'Admin123*',
+    mobile: process.env.SEED_ADMIN_MOBILE || '0999999999',
+    role: process.env.SEED_ADMIN_ROLE || 'admin',
+  },
 };

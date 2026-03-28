@@ -74,6 +74,29 @@ npm start
 
 El servidor estará en: **http://localhost:3001**
 
+### Usuario administrador de desarrollo
+
+Al iniciar el backend se crea o actualiza automáticamente un usuario administrador para pruebas:
+
+```txt
+usuario: admin
+email: admin@brokersec.local
+password: Admin123*
+```
+
+Puedes cambiar estas credenciales con variables de entorno:
+
+```env
+SEED_ADMIN_USERNAME=admin
+SEED_ADMIN_EMAIL=admin@brokersec.local
+SEED_ADMIN_PASSWORD=Admin123*
+SEED_ADMIN_DNI=9999999999
+SEED_ADMIN_FIRST_NAME=Admin
+SEED_ADMIN_LAST_NAME=Brokersec
+SEED_ADMIN_MOBILE=0999999999
+SEED_ADMIN_ROLE=admin
+```
+
 ---
 
 ## 📡 Endpoints
