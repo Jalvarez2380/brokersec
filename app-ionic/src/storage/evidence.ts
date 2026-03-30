@@ -4,8 +4,14 @@ import { EvidencePhoto, EvidencePhotoType } from "../services/camera.service";
 const KEY = "quote_evidence";
 
 export interface QuoteEvidence {
-  vehicle?: EvidencePhoto;
+  front?: EvidencePhoto;
+  rear?: EvidencePhoto;
+  leftSide?: EvidencePhoto;
+  rightSide?: EvidencePhoto;
+  dashboard?: EvidencePhoto;
   document?: EvidencePhoto;
+  registration?: EvidencePhoto;
+  license?: EvidencePhoto;
 }
 
 const get = async (): Promise<QuoteEvidence> => {
