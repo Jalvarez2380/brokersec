@@ -6,7 +6,6 @@ import api from "../lib/api";
 import { profileData } from "../storage";
 import { USE_MOCK_FALLBACK } from "../config";
 import { Preferences } from "@capacitor/preferences";
-import { API_BASE } from "../config";
 import queryClient from "../queryClient";
 import { normalizeAppUser } from "./user.utils";
 
@@ -58,20 +57,7 @@ async function signin(credentials: Credentials): Promise<UserData> {
       ? { email: usernameOrEmail, password: credentials.password }
       : { username: usernameOrEmail, password: credentials.password };
 
-    const res = await fetch(`${API_BASE}/api/auth/signin`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "omit",
-      body: JSON.stringify(payload),
-    });
-
-    const data = await res.json().catch(() => ({} as UserData));
-
-    if (!res.ok) {
-      throw new Error(
-        (data as any)?.message || (data as any)?.error || "Error en autenticacion",
-      );
-    }
+    const data = await api.post<any>("/api/auth/signin", payload, false);
 
     await Preferences.set({ key: AUTH_KEY, value: "true" });
     localStorage.setItem(AUTH_KEY, "true");
@@ -245,14 +231,7 @@ export const logout = signout;
 export { isAuthenticated, getToken, getCurrentUser };
 
 export async function login(credentials: { email: string; password: string }) {
-  const res = await fetch(`${API_BASE}/api/auth/login`, {
-    method: "POST",
-    credentials: "omit",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(credentials),
-  });
-  if (!res.ok) throw new Error("Login failed");
-  const data = await res.json();
+  const data = await api.post("/api/auth/login", credentials, false);
   await queryClient.invalidateQueries({ queryKey: ["profile"] });
   return data;
 }

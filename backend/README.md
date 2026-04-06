@@ -74,6 +74,47 @@ npm start
 
 El servidor estará en: **http://localhost:3001**
 
+### Usuarios de desarrollo por rol
+
+Al iniciar el backend se crean o actualizan automáticamente usuarios de prueba por rol:
+
+```txt
+Administrador -> usuario: admin   | email: admin@brokersec.local   | password: Admin123*
+Ventas        -> usuario: ventas  | email: ventas@brokersec.local  | password: Ventas123*
+Usuario       -> usuario: usuario | email: usuario@brokersec.local | password: Usuario123*
+```
+
+Puedes cambiar estas credenciales con variables de entorno:
+
+```env
+SEED_ADMIN_USERNAME=admin
+SEED_ADMIN_EMAIL=admin@brokersec.local
+SEED_ADMIN_PASSWORD=Admin123*
+SEED_ADMIN_DNI=9999999999
+SEED_ADMIN_FIRST_NAME=Admin
+SEED_ADMIN_LAST_NAME=Brokersec
+SEED_ADMIN_MOBILE=0999999999
+SEED_ADMIN_ROLE=admin
+
+SEED_SALES_USERNAME=ventas
+SEED_SALES_EMAIL=ventas@brokersec.local
+SEED_SALES_PASSWORD=Ventas123*
+SEED_SALES_DNI=8888888888
+SEED_SALES_FIRST_NAME=Ventas
+SEED_SALES_LAST_NAME=Brokersec
+SEED_SALES_MOBILE=0988888888
+SEED_SALES_ROLE=ventas
+
+SEED_USER_USERNAME=usuario
+SEED_USER_EMAIL=usuario@brokersec.local
+SEED_USER_PASSWORD=Usuario123*
+SEED_USER_DNI=7777777777
+SEED_USER_FIRST_NAME=Cliente
+SEED_USER_LAST_NAME=Brokersec
+SEED_USER_MOBILE=0977777777
+SEED_USER_ROLE=usuario
+```
+
 ---
 
 ## 📡 Endpoints

@@ -31,6 +31,7 @@ Descripción rápida
 - `src/services/auth.ts`: servicio de autenticación simulado (usa `localStorage`).
 - `src/pages/Home.tsx`: ruta protegida ejemplo.
 - `capacitor.config.ts`: configuración mínima de Capacitor.
+- `src/pages/Users.tsx`: gestión de usuarios y roles, visible solo para administradores.
 
 Siguientes pasos
 
@@ -38,10 +39,12 @@ Siguientes pasos
 - Añadir manejo de errores y validaciones más completas.
 - Configurar plataformas nativas con `npx cap add ios` / `android`.
 
-Mobile-only y HTTP
+Mobile-only y PostgreSQL
 
-- La app está preparada para bloquear la UI web y mostrar un mensaje si se abre en un navegador estándar (usa Capacitor para detectar la plataforma).
-- Las peticiones al backend usan HTTP por defecto. Ajusta `src/config.ts` o la variable `VITE_API_BASE` si necesitas otra dirección. Para emulador Android, suele usarse `http://10.0.2.2:3000`.
+- La app consume únicamente el backend local de BROKERSEC.
+- En web, si no defines `VITE_API_URL`, el frontend usa automáticamente `http://<host-del-navegador>:3001`.
+- Para emulador Android, se usa `http://10.0.2.2:3001`.
+- Todas las operaciones de autenticación, usuarios y cotizaciones se guardan en PostgreSQL a través del backend.
 
 Ejecutar en desarrollo (emulador o dispositivo)
 
@@ -51,6 +54,12 @@ npm run cap:init   # solo la primera vez
 npm run cap:sync
 npm run cap:open:android
 ```
+
+Roles disponibles
+
+- `admin`: acceso a cotizador, perfil y gestión de usuarios.
+- `ventas`: acceso a inicio, cotizador y perfil.
+- `usuario`: acceso a inicio y perfil.
 
 # App Kick Off — Mini Login con Ionic + Capacitor
 
