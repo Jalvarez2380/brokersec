@@ -22,7 +22,18 @@ function createApp() {
 
   app.use(helmet());
   app.use(cors({
-    origin: '*',
+    origin: (origin, callback) => {
+      // Peticiones sin origin (apps moviles nativas, Postman, etc.) siempre permitidas
+      if (!origin) return callback(null, true);
+      // En produccion, respetar CORS_ORIGIN del entorno
+      if (process.env.NODE_ENV === 'production') {
+        const allowed = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+        if (allowed.length === 0 || allowed.includes(origin)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+      }
+      // En desarrollo, permitir cualquier origen
+      return callback(null, true);
+    },
     credentials: true,
   }));
 

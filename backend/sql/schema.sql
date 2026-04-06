@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS inspections (
   status VARCHAR(30) NOT NULL DEFAULT 'pending',
   notes TEXT,
   scheduled_at TIMESTAMPTZ,
+  location JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev --host 0.0.0.0 --port 3001",
+    "dev": "vite dev --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "ci:build": "npm run typecheck && npm run build",
@@ -19,11 +19,11 @@
     "android:build:release": "cd android && ./gradlew bundleRelease",
     "android:open": "npx cap open android",
     "android:run": "npx cap run android",
-    "android:dev": "CAPACITOR_CONFIG=capacitor.config.dev.ts npx cap run android",
+    "android:dev": "node scripts/use-dev-config.js && npx cap sync android && npx cap run android",
     "ios": "vite build && npx cap sync ios && npx cap run ios",
     "ios:open": "npx cap open ios",
     "ios:run": "npx cap run ios",
-    "ios:dev": "CAPACITOR_CONFIG=capacitor.config.dev.ts npx cap run ios"
+    "ios:dev": "node scripts/use-dev-config.js && npx cap sync ios && npx cap run ios"
   },
   "dependencies": {
     "@capacitor-community/http": "^1.4.1",
