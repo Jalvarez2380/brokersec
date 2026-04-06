@@ -12,13 +12,19 @@ import {
   IonBackButton,
   IonSpinner,
   IonRefresher,
-  IonRefresherContent
+  IonRefresherContent,
+  IonItem,
+  IonLabel,
+  IonSelect,
+  IonSelectOption,
+  IonText
 } from "@ionic/react";
 import { authService } from "../services/auth.service";
 import { RefresherEventDetail } from "@ionic/core";
 import { useRefreshData } from "../hooks/useRealtimeData";
 import { registerSchema, RegisterFormData } from "../schemas/auth.schemas";
 import { FormInput } from "../components/FormInput";
+import { USER_ROLES } from "../constants/roles";
 
 const Register: React.FC = () => {
   const { refreshProfile } = useRefreshData();
@@ -33,6 +39,8 @@ const Register: React.FC = () => {
   const {
     control,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema) as any,
@@ -45,8 +53,11 @@ const Register: React.FC = () => {
       password: "",
       confirmPassword: "",
       mobile: "",
+      role: USER_ROLES.USER,
     },
   });
+
+  const selectedRole = watch("role");
 
   const onSubmit = async (data: RegisterFormData) => {
     setError(null);
@@ -61,6 +72,7 @@ const Register: React.FC = () => {
         username: data.username,
         password: data.password,
         mobile: data.mobile || undefined,
+        role: data.role,
       };
 
       await authService.signup(registerData);
@@ -115,6 +127,22 @@ const Register: React.FC = () => {
 
             <FormInput name="email" control={control} label="Email" type="email" placeholder="correo@ejemplo.com" error={errors.email?.message} />
             <FormInput name="username" control={control} label="Usuario" placeholder="jose.antonio" error={errors.username?.message} />
+
+            <IonItem lines="full" style={{ marginBottom: 12, borderRadius: 8 }}>
+              <IonLabel position="stacked">Tipo de cuenta</IonLabel>
+              <IonSelect value={selectedRole} onIonChange={(e) => setValue("role", e.detail.value)}>
+                <IonSelectOption value={USER_ROLES.USER}>Usuario</IonSelectOption>
+                <IonSelectOption value={USER_ROLES.INSPECTOR}>Inspector</IonSelectOption>
+                <IonSelectOption value={USER_ROLES.SALES}>Ventas</IonSelectOption>
+              </IonSelect>
+            </IonItem>
+
+            <IonText color="medium">
+              <p style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+                El rol de <strong>Administrador</strong> lo asigna internamente el sistema.
+              </p>
+            </IonText>
+
             <FormInput name="mobile" control={control} label="Teléfono" type="tel" placeholder="0999772225" error={errors.mobile?.message} />
             <FormInput name="password" control={control} label="Contraseña" type="password" placeholder="Mínimo 6 caracteres" error={errors.password?.message} />
             <FormInput name="confirmPassword" control={control} label="Confirmar" type="password" placeholder="Repite contraseña" error={errors.confirmPassword?.message} />

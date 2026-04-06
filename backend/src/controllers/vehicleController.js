@@ -1,4 +1,9 @@
 const vehicleRepository = require('../repositories/vehicleRepository');
+const { normalizeRole, USER_ROLES } = require('../config/roles');
+
+function canViewAllVehicles(role) {
+  return [USER_ROLES.ADMIN, USER_ROLES.INSPECTOR, USER_ROLES.SALES].includes(normalizeRole(role));
+}
 
 class VehicleController {
   async create(req, res, next) {
@@ -12,8 +17,11 @@ class VehicleController {
         });
       }
 
+      const role = normalizeRole(req.user?.role);
+      const resolvedUserId = role === USER_ROLES.ADMIN && userId ? userId : req.user?.sub || userId;
+
       const vehicle = await vehicleRepository.createVehicle({
-        userId,
+        userId: resolvedUserId,
         brand,
         model,
         year,
@@ -34,8 +42,9 @@ class VehicleController {
 
   async list(req, res, next) {
     try {
+      const role = normalizeRole(req.user?.role);
       const vehicles = await vehicleRepository.listVehicles({
-        userId: req.query.userId,
+        userId: canViewAllVehicles(role) ? req.query.userId : req.user?.sub,
       });
 
       return res.json({
@@ -54,6 +63,13 @@ class VehicleController {
         return res.status(404).json({
           success: false,
           message: 'Vehículo no encontrado',
+        });
+      }
+
+      if (!canViewAllVehicles(req.user?.role) && Number(vehicle.userId) !== Number(req.user?.sub)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para ver este vehículo',
         });
       }
 

@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import {
   IonPage, IonContent, IonButton, IonIcon,
-  IonInput, IonItem, IonLabel, IonText, IonToast,
+  IonInput, IonItem, IonLabel, IonText, IonToast, IonChip,
 } from "@ionic/react";
 import { eye, eyeOff, logIn, personAdd } from "ionicons/icons";
 import { authService } from "../services/auth.service";
+import { USER_ROLES } from "../constants/roles";
+import { normalizeRole } from "../services/user.utils";
 
 const Login: React.FC = () => {
   const [usuario, setUsuario] = useState("");
@@ -30,14 +32,22 @@ const Login: React.FC = () => {
 
     try {
       setLoading(true);
-      await authService.signin({
+      const session = await authService.signin({
         username: usuario.trim(),
         password,
       });
 
+      const role = normalizeRole(session.role);
+      const targetRoute =
+        role === USER_ROLES.ADMIN
+          ? "/tabs/admin"
+          : role === USER_ROLES.INSPECTOR
+            ? "/tabs/inspecciones"
+            : "/tabs/inicio";
+
       setShowToast(true);
       setTimeout(() => {
-        window.location.href = "/tabs/inicio";
+        window.location.href = targetRoute;
       }, 1200);
     } catch (err: any) {
       setError(err?.message || "Error al iniciar sesion. Intenta de nuevo.");
@@ -69,8 +79,13 @@ const Login: React.FC = () => {
               Bienvenido
             </h1>
             <p style={{ fontSize: 14, color: "#666", margin: 0 }}>
-              Ingresa tus credenciales para continuar
+              Ingresa tus credenciales para continuar según tu rol
             </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+              <IonChip color="primary">Usuario</IonChip>
+              <IonChip color="success">Inspector</IonChip>
+              <IonChip color="warning">Administrador</IonChip>
+            </div>
           </div>
 
           {/* Tarjeta formulario */}

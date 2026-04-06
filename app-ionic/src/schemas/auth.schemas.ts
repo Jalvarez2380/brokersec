@@ -98,6 +98,7 @@ export const registerSchema = z
         .min(3, "El usuario debe tener al menos 3 caracteres")
         .max(20, "El usuario no puede tener más de 20 caracteres"),
     ),
+    role: z.enum(["user", "inspector", "ventas", "admin"]).default("user"),
     mobile: z.preprocess(
       (v) => (typeof v === "string" ? v.trim() : v),
       z

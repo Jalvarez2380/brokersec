@@ -93,18 +93,21 @@ async function handleResponse<T = any>(
     return response.data as T;
   }
 
-  // Sesión expirada (similar a sgu-mobile)
-  if (response.status === 403) {
-    console.warn("Sesión expirada, limpiando datos...");
+  // No autorizado / sesión inválida
+  if (response.status === 401) {
     await Preferences.remove({ key: "session_cookie" });
     await logout();
     window.location.href = "/login";
-    throw new Error("Sesión expirada");
+    throw new Error("No autorizado");
   }
 
-  // No autorizado
-  if (response.status === 401) {
-    throw new Error("No autorizado");
+  // Acceso denegado por permisos
+  if (response.status === 403) {
+    const errorMessage =
+      response.data?.message ||
+      response.data?.error ||
+      "Acceso denegado";
+    throw new Error(errorMessage);
   }
 
   // Error del cliente (4XX)

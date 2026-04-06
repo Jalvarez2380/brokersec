@@ -1,16 +1,25 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), basicSsl()],
   server: {
-    port: 4173,
+    port: 3000,
     host: "0.0.0.0",
-    strictPort: false,
+    strictPort: true,
+    https: true,
     hmr: {
-      protocol: "ws",
+      protocol: "wss",
       host: "0.0.0.0",
-      port: 4173,
+      port: 3000,
+    },
+    proxy: {
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });

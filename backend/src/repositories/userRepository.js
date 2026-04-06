@@ -32,7 +32,7 @@ async function findByUsernameOrEmail(value) {
   const result = await query(
     `SELECT *
      FROM users
-     WHERE username = $1 OR email = $1
+     WHERE username = $1 OR email = $1 OR dni = $1
      LIMIT 1`,
     [value]
   );

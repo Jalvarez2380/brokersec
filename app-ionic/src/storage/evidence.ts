@@ -6,6 +6,13 @@ const KEY = "quote_evidence";
 export interface QuoteEvidence {
   vehicle?: EvidencePhoto;
   document?: EvidencePhoto;
+  front?: EvidencePhoto;
+  rear?: EvidencePhoto;
+  left?: EvidencePhoto;
+  right?: EvidencePhoto;
+  odometer?: EvidencePhoto;
+  extra1?: EvidencePhoto;
+  extra2?: EvidencePhoto;
 }
 
 const get = async (): Promise<QuoteEvidence> => {

@@ -3,17 +3,17 @@ import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent,
   IonCard, IonCardHeader, IonCardTitle, IonCardContent,
   IonButton, IonIcon, IonGrid, IonRow, IonCol,
-  IonItem, IonLabel, IonInput, IonSelect, IonSelectOption,
   IonText, IonToast, IonBadge, IonSpinner,
 } from "@ionic/react";
 import {
   documentText, mail, print, calculator,
-  car, checkmarkCircle, alertCircle, download, camera, trash,
+  checkmarkCircle, download, camera, trash, locate, navigate,
 } from "ionicons/icons";
 import { cameraService, EvidencePhoto } from "../services/camera.service";
 import { evidenceData } from "../storage";
 import { authService } from "../services/auth.service";
-import { createVehicleAndQuote } from "../services/quote.service";
+import { createVehicleAndQuote, listMyQuotes, QuoteRecord } from "../services/quote.service";
+import { createInspection } from "../services/inspection.service";
 
 interface Usuario {
   id?: number;
@@ -38,10 +38,54 @@ const TASA_BASE = 0.0339; // 3.39% del valor asegurado
 interface EvidenceState {
   vehicle?: EvidencePhoto;
   document?: EvidencePhoto;
+  front?: EvidencePhoto;
+  rear?: EvidencePhoto;
+  left?: EvidencePhoto;
+  right?: EvidencePhoto;
+  odometer?: EvidencePhoto;
+  extra1?: EvidencePhoto;
+  extra2?: EvidencePhoto;
 }
+
+interface VehicleLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  timestamp: string;
+}
+
+type EvidenceGroup = "base" | "inspection" | "extras";
+
+const EVIDENCE_FIELDS: Array<{
+  key: keyof EvidenceState;
+  title: string;
+  subtitle: string;
+  group: EvidenceGroup;
+}> = [
+  { key: "vehicle", title: "Foto del vehiculo", subtitle: "Vista general del auto", group: "base" },
+  { key: "document", title: "Foto de la cedula", subtitle: "Documento del titular", group: "base" },
+  { key: "front", title: "Vehiculo delantero", subtitle: "Parte frontal", group: "inspection" },
+  { key: "rear", title: "Vehiculo trasero", subtitle: "Parte posterior", group: "inspection" },
+  { key: "left", title: "Lado izquierdo", subtitle: "Costado izquierdo del vehiculo", group: "inspection" },
+  { key: "right", title: "Lado derecho", subtitle: "Costado derecho del vehiculo", group: "inspection" },
+  { key: "odometer", title: "Panel kilometraje", subtitle: "Tablero y kilometraje actual", group: "extras" },
+  { key: "extra1", title: "Foto extra 1", subtitle: "Accesorio o detalle adicional", group: "extras" },
+  { key: "extra2", title: "Foto extra 2", subtitle: "Segunda evidencia extra si aplica", group: "extras" },
+];
+
+const EVIDENCE_SECTIONS: Array<{
+  group: EvidenceGroup;
+  title: string;
+  subtitle: string;
+}> = [
+  { group: "base", title: "Documentos principales", subtitle: "Fotos basicas para identificar el vehiculo y al titular" },
+  { group: "inspection", title: "Vistas del vehiculo", subtitle: "Captura los cuatro lados para la inspeccion" },
+  { group: "extras", title: "Detalles adicionales", subtitle: "Kilometraje y extras si aplica" },
+];
 
 const Profile: React.FC = () => {
   const printRef = useRef<HTMLDivElement>(null);
+  const locationWatchRef = useRef<number | null>(null);
 
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [vehiculo, setVehiculo] = useState<Vehiculo>({
@@ -55,6 +99,12 @@ const Profile: React.FC = () => {
   const [evidence, setEvidence] = useState<EvidenceState>({});
   const [capturingType, setCapturingType] = useState<keyof EvidenceState | null>(null);
   const [savingQuote, setSavingQuote] = useState(false);
+  const [locationInfo, setLocationInfo] = useState<VehicleLocation | null>(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationTracking, setLocationTracking] = useState(false);
+  const [locationError, setLocationError] = useState("");
+  const [latestQuote, setLatestQuote] = useState<QuoteRecord | null>(null);
+  const [savingInspection, setSavingInspection] = useState(false);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -87,7 +137,23 @@ const Profile: React.FC = () => {
       }
     };
 
+    const loadLatestQuote = async () => {
+      try {
+        const quotes = await listMyQuotes();
+        setLatestQuote(quotes[0] || null);
+      } catch (quoteError) {
+        console.warn("No se pudo cargar la ultima cotizacion:", quoteError);
+      }
+    };
+
     loadEvidence();
+    loadLatestQuote();
+
+    return () => {
+      if (locationWatchRef.current !== null && "geolocation" in navigator) {
+        navigator.geolocation.clearWatch(locationWatchRef.current);
+      }
+    };
   }, []);
 
   const showFeedback = (message: string, color = "success") => {
@@ -124,6 +190,83 @@ const Profile: React.FC = () => {
     }
   };
 
+  const updateLocationFromPosition = (position: GeolocationPosition) => {
+    setLocationInfo({
+      latitude: position.coords.latitude,
+      longitude: position.coords.longitude,
+      accuracy: position.coords.accuracy,
+      timestamp: new Date(position.timestamp).toLocaleString("es-EC"),
+    });
+    setLocationError("");
+  };
+
+  const handleGetLocation = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationError("Este dispositivo no soporta geolocalizacion.");
+      showFeedback("Geolocalizacion no disponible en este dispositivo.", "warning");
+      return;
+    }
+
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        updateLocationFromPosition(position);
+        setLocationLoading(false);
+        showFeedback("Ubicacion actual obtenida.", "primary");
+      },
+      (geoError) => {
+        setLocationLoading(false);
+        setLocationError("No se pudo obtener la ubicacion. Revisa los permisos de GPS.");
+        showFeedback(geoError.message || "No se pudo obtener la ubicacion.", "danger");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  const handleToggleLocationTracking = () => {
+    if (!("geolocation" in navigator)) {
+      setLocationError("Este dispositivo no soporta geolocalizacion.");
+      return;
+    }
+
+    if (locationWatchRef.current !== null) {
+      navigator.geolocation.clearWatch(locationWatchRef.current);
+      locationWatchRef.current = null;
+      setLocationTracking(false);
+      showFeedback("Seguimiento de ubicacion detenido.", "medium");
+      return;
+    }
+
+    setLocationTracking(true);
+    setLocationLoading(true);
+    locationWatchRef.current = navigator.geolocation.watchPosition(
+      (position) => {
+        updateLocationFromPosition(position);
+        setLocationLoading(false);
+      },
+      (geoError) => {
+        setLocationLoading(false);
+        setLocationTracking(false);
+        setLocationError("No se pudo iniciar el seguimiento de ubicacion.");
+        if (locationWatchRef.current !== null) {
+          navigator.geolocation.clearWatch(locationWatchRef.current);
+          locationWatchRef.current = null;
+        }
+        showFeedback(geoError.message || "No se pudo iniciar el seguimiento.", "danger");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000,
+      }
+    );
+    showFeedback("Seguimiento de ubicacion activado.", "primary");
+  };
+
   const calcularPrima = async () => {
     setError("");
     if (!vehiculo.marca || !vehiculo.modelo || !vehiculo.anio || !vehiculo.valorCasco) {
@@ -141,6 +284,9 @@ const Profile: React.FC = () => {
     const iva = primaNeta * 0.15;
     const primaTotal = primaNeta + iva;
     const cuotaMensual = primaTotal / 6;
+    const capturedEvidence = Object.fromEntries(
+      EVIDENCE_FIELDS.map((item) => [item.key, !!evidence[item.key]])
+    ) as Record<keyof EvidenceState, boolean>;
 
     try {
       setSavingQuote(true);
@@ -157,10 +303,7 @@ const Profile: React.FC = () => {
         payload: {
           vehicleMetadata: {
             source: "profile",
-            evidenceCaptured: {
-              vehicle: !!evidence.vehicle,
-              document: !!evidence.document,
-            },
+            evidenceCaptured: capturedEvidence,
           },
           evidence,
           summary: {
@@ -175,10 +318,7 @@ const Profile: React.FC = () => {
         fecha: new Date().toLocaleDateString("es-EC", { day: "numeric", month: "long", year: "numeric" }),
         usuario,
         vehiculo: { ...vehiculo },
-        evidencia: {
-          vehiculo: !!evidence.vehicle,
-          cedula: !!evidence.document,
-        },
+        evidencia: capturedEvidence,
         valorCasco: casco,
         valorExtras: extras,
         valorAsegurado,
@@ -268,7 +408,62 @@ const Profile: React.FC = () => {
     showFeedback("Abriendo cliente de correo...", "primary");
   };
 
-  const inputStyle = { "--background": "#f0f4ff" } as any;
+  const handleSaveInspection = async () => {
+    if (!latestQuote?.id || !latestQuote.vehicleId) {
+      showFeedback("Primero genera una cotizacion en la pestaña Cotizador.", "warning");
+      return;
+    }
+
+    const evidences = EVIDENCE_FIELDS
+      .map((item) => evidence[item.key])
+      .filter(Boolean)
+      .map((photo) => ({
+        type: photo!.type,
+        label: photo!.label,
+        dataUrl: photo!.dataUrl,
+        metadata: {
+          createdAt: photo!.createdAt,
+        },
+      }));
+
+    if (evidences.length === 0) {
+      showFeedback("Adjunta al menos una foto antes de guardar la inspeccion.", "warning");
+      return;
+    }
+
+    try {
+      setSavingInspection(true);
+      const inspection = await createInspection({
+        quoteId: latestQuote.id,
+        vehicleId: latestQuote.vehicleId,
+        status: "pending",
+        notes: "Inspeccion enviada desde la pestaña Perfil para revision del inspector.",
+        location: locationInfo
+          ? {
+              latitude: locationInfo.latitude,
+              longitude: locationInfo.longitude,
+              accuracy: locationInfo.accuracy,
+              timestamp: locationInfo.timestamp,
+            }
+          : undefined,
+        evidences,
+      });
+
+      showFeedback(`Inspeccion #${inspection.id} guardada correctamente.`, "success");
+    } catch (inspectionError: any) {
+      showFeedback(inspectionError?.message || "No se pudo guardar la inspeccion.", "danger");
+    } finally {
+      setSavingInspection(false);
+    }
+  };
+
+  const mapEmbedUrl = locationInfo
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${locationInfo.longitude - 0.01}%2C${locationInfo.latitude - 0.01}%2C${locationInfo.longitude + 0.01}%2C${locationInfo.latitude + 0.01}&layer=mapnik&marker=${locationInfo.latitude}%2C${locationInfo.longitude}`
+    : "";
+
+  const googleMapsUrl = locationInfo
+    ? `https://www.google.com/maps?q=${locationInfo.latitude},${locationInfo.longitude}`
+    : "";
 
   return (
     <IonPage>
@@ -317,165 +512,251 @@ const Profile: React.FC = () => {
               <p style={{ fontSize: 12, color: "#555", marginTop: 0 }}>
                 Captura evidencia visual para respaldar la cotizacion y facilitar la inspeccion del cliente.
               </p>
-              <IonGrid style={{ padding: 0 }}>
-                <IonRow>
-                  {[
-                    {
-                      key: "vehicle" as const,
-                      title: "Foto del vehiculo",
-                      subtitle: "Frontal o lateral del auto",
-                      photo: evidence.vehicle,
-                    },
-                    {
-                      key: "document" as const,
-                      title: "Foto de la cedula",
-                      subtitle: "Documento del titular",
-                      photo: evidence.document,
-                    },
-                  ].map((item) => (
-                    <IonCol size="12" sizeMd="6" key={item.key}>
-                      <div
-                        style={{
-                          background: "#f8fff9",
-                          border: "1px solid #d2f0d9",
-                          borderRadius: 12,
-                          padding: 12,
-                          minHeight: 260,
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "space-between",
-                          gap: 12,
-                        }}
-                      >
-                        <div>
-                          <p style={{ fontWeight: "bold", margin: "0 0 4px", color: "#137333" }}>
-                            {item.title}
-                          </p>
-                          <p style={{ fontSize: 12, color: "#666", margin: 0 }}>{item.subtitle}</p>
-                        </div>
 
-                        {item.photo ? (
-                          <img
-                            src={item.photo.dataUrl}
-                            alt={item.title}
-                            style={{
-                              width: "100%",
-                              height: 140,
-                              objectFit: "cover",
-                              borderRadius: 10,
-                              border: "1px solid #cde7d1",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              height: 140,
-                              borderRadius: 10,
-                              border: "1px dashed #b7dabb",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#7a7a7a",
-                              fontSize: 12,
-                              textAlign: "center",
-                              padding: 12,
-                            }}
-                          >
-                            Aun no hay evidencia capturada
-                          </div>
-                        )}
+              {EVIDENCE_SECTIONS.map((section) => (
+                <div key={section.group} style={{ marginBottom: 18 }}>
+                  <div style={{ marginBottom: 8 }}>
+                    <p style={{ fontWeight: "bold", fontSize: 13, color: "#137333", margin: "0 0 2px" }}>
+                      {section.title}
+                    </p>
+                    <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>{section.subtitle}</p>
+                  </div>
 
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <IonButton
-                            expand="block"
-                            onClick={() => handleCaptureEvidence(item.key)}
-                            disabled={capturingType !== null}
-                            style={{ flex: 1, margin: 0 }}
+                  <IonGrid style={{ padding: 0 }}>
+                    <IonRow>
+                      {EVIDENCE_FIELDS.filter((item) => item.group === section.group).map((item) => {
+                        const photo = evidence[item.key];
+
+                        return (
+                          <IonCol
+                            size="12"
+                            sizeMd="6"
+                            sizeLg={section.group === "inspection" ? "3" : "4"}
+                            key={item.key}
                           >
-                            {capturingType === item.key ? <IonSpinner name="crescent" /> : <IonIcon icon={camera} slot="start" />}
-                            {item.photo ? "Repetir foto" : "Tomar foto"}
-                          </IonButton>
-                          {item.photo && (
-                            <IonButton
-                              color="medium"
-                              fill="outline"
-                              onClick={() => handleRemoveEvidence(item.key)}
-                              disabled={capturingType !== null}
-                              style={{ margin: 0 }}
+                            <div
+                              style={{
+                                background: "#f8fff9",
+                                border: "1px solid #d2f0d9",
+                                borderRadius: 12,
+                                padding: 12,
+                                minHeight: 240,
+                                display: "flex",
+                                flexDirection: "column",
+                                justifyContent: "space-between",
+                                gap: 10,
+                                boxShadow: "0 4px 12px rgba(19,115,51,0.06)",
+                              }}
                             >
-                              <IonIcon icon={trash} />
-                            </IonButton>
-                          )}
-                        </div>
-                      </div>
-                    </IonCol>
-                  ))}
-                </IonRow>
-              </IonGrid>
+                              <div>
+                                <p style={{ fontWeight: "bold", margin: "0 0 4px", color: "#137333" }}>
+                                  {item.title}
+                                </p>
+                                <p style={{ fontSize: 12, color: "#666", margin: 0 }}>{item.subtitle}</p>
+                              </div>
+
+                              {photo ? (
+                                <img
+                                  src={photo.dataUrl}
+                                  alt={item.title}
+                                  style={{
+                                    width: "100%",
+                                    height: 130,
+                                    objectFit: "cover",
+                                    borderRadius: 10,
+                                    border: "1px solid #cde7d1",
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    height: 130,
+                                    borderRadius: 10,
+                                    border: "1px dashed #b7dabb",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#7a7a7a",
+                                    fontSize: 12,
+                                    textAlign: "center",
+                                    padding: 12,
+                                    background: "#ffffff",
+                                  }}
+                                >
+                                  Aun no hay evidencia capturada
+                                </div>
+                              )}
+
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <IonButton
+                                  expand="block"
+                                  onClick={() => handleCaptureEvidence(item.key)}
+                                  disabled={capturingType !== null}
+                                  style={{ flex: 1, margin: 0 }}
+                                  size="small"
+                                >
+                                  {capturingType === item.key ? <IonSpinner name="crescent" /> : <IonIcon icon={camera} slot="start" />}
+                                  {photo ? "Repetir foto" : "Tomar foto"}
+                                </IonButton>
+                                {photo && (
+                                  <IonButton
+                                    color="medium"
+                                    fill="outline"
+                                    onClick={() => handleRemoveEvidence(item.key)}
+                                    disabled={capturingType !== null}
+                                    style={{ margin: 0 }}
+                                    size="small"
+                                  >
+                                    <IonIcon icon={trash} />
+                                  </IonButton>
+                                )}
+                              </div>
+                            </div>
+                          </IonCol>
+                        );
+                      })}
+                    </IonRow>
+                  </IonGrid>
+                </div>
+              ))}
             </IonCardContent>
           </IonCard>
         </div>
 
         <div style={{ padding: "14px 16px 0" }}>
-          <IonCard style={{ margin: 0, border: "2px solid #1a73e8", borderRadius: 12 }}>
+          <IonCard style={{ margin: 0, border: "2px solid #1a73e8", borderRadius: 12, background: "#f8fbff" }}>
             <IonCardHeader style={{ paddingBottom: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <IonIcon icon={car} color="primary" style={{ fontSize: 20 }} />
-                <IonCardTitle style={{ fontSize: 16, color: "#1a73e8" }}>Datos del Vehiculo</IonCardTitle>
+                <IonIcon icon={locate} color="primary" style={{ fontSize: 20 }} />
+                <IonCardTitle style={{ fontSize: 16, color: "#1a73e8" }}>
+                  Ubicacion del vehiculo
+                </IonCardTitle>
               </div>
             </IonCardHeader>
             <IonCardContent>
-              <IonGrid style={{ padding: 0 }}>
-                <IonRow>
-                  <IonCol size="6" style={{ paddingLeft: 0, paddingRight: 4 }}>
-                    <IonItem lines="full" style={inputStyle}>
-                      <IonLabel position="stacked">Marca *</IonLabel>
-                      <IonInput value={vehiculo.marca} placeholder="Ej. FORD"
-                        onIonInput={(e) => setVehiculo({ ...vehiculo, marca: e.detail.value as string })} />
-                    </IonItem>
-                  </IonCol>
-                  <IonCol size="6" style={{ paddingRight: 0, paddingLeft: 4 }}>
-                    <IonItem lines="full" style={inputStyle}>
-                      <IonLabel position="stacked">Modelo *</IonLabel>
-                      <IonInput value={vehiculo.modelo} placeholder="Ej. F150"
-                        onIonInput={(e) => setVehiculo({ ...vehiculo, modelo: e.detail.value as string })} />
-                    </IonItem>
-                  </IonCol>
-                </IonRow>
-                <IonRow>
-                  <IonCol size="4" style={{ paddingLeft: 0, paddingRight: 4 }}>
-                    <IonItem lines="full" style={inputStyle}>
-                      <IonLabel position="stacked">Año *</IonLabel>
-                      <IonInput type="number" value={vehiculo.anio} placeholder="2020"
-                        onIonInput={(e) => setVehiculo({ ...vehiculo, anio: e.detail.value as string })} />
-                    </IonItem>
-                  </IonCol>
-                  <IonCol size="4" style={{ paddingRight: 4, paddingLeft: 4 }}>
-                    <IonItem lines="full" style={inputStyle}>
-                      <IonLabel position="stacked">Valor Casco $*</IonLabel>
-                      <IonInput type="number" value={vehiculo.valorCasco} placeholder="25000"
-                        onIonInput={(e) => setVehiculo({ ...vehiculo, valorCasco: e.detail.value as string })} />
-                    </IonItem>
-                  </IonCol>
-                  <IonCol size="4" style={{ paddingRight: 0, paddingLeft: 4 }}>
-                    <IonItem lines="full" style={inputStyle}>
-                      <IonLabel position="stacked">Extras $</IonLabel>
-                      <IonInput type="number" value={vehiculo.valorExtras} placeholder="500"
-                        onIonInput={(e) => setVehiculo({ ...vehiculo, valorExtras: e.detail.value as string })} />
-                    </IonItem>
-                  </IonCol>
-                </IonRow>
-              </IonGrid>
+              <p style={{ fontSize: 12, color: "#555", marginTop: 0 }}>
+                Permite al inspector ver en tiempo real donde se encuentra el vehiculo y abrir la ubicacion en mapa.
+              </p>
 
-              {error && (
+              <div
+                style={{
+                  background: "#eef5ff",
+                  border: "1px solid #d5e4ff",
+                  borderRadius: 10,
+                  padding: 12,
+                  marginBottom: 12,
+                }}
+              >
+                {locationInfo ? (
+                  <>
+                    <p style={{ margin: "0 0 4px", fontSize: 12 }}>
+                      <strong>Latitud:</strong> {locationInfo.latitude.toFixed(6)}
+                    </p>
+                    <p style={{ margin: "0 0 4px", fontSize: 12 }}>
+                      <strong>Longitud:</strong> {locationInfo.longitude.toFixed(6)}
+                    </p>
+                    <p style={{ margin: "0 0 4px", fontSize: 12 }}>
+                      <strong>Precision:</strong> {Math.round(locationInfo.accuracy)} m
+                    </p>
+                    <p style={{ margin: 0, fontSize: 12 }}>
+                      <strong>Actualizado:</strong> {locationInfo.timestamp}
+                    </p>
+                  </>
+                ) : (
+                  <p style={{ margin: 0, fontSize: 12, color: "#666" }}>
+                    Aun no se ha capturado la ubicacion del vehiculo.
+                  </p>
+                )}
+              </div>
+
+              {locationError && (
                 <IonText color="danger">
-                  <p style={{ fontSize: 12, margin: "6px 0 0" }}>{error}</p>
+                  <p style={{ fontSize: 12, margin: "0 0 10px" }}>{locationError}</p>
                 </IonText>
               )}
 
-              <IonButton expand="block" onClick={calcularPrima} style={{ marginTop: 12 }} disabled={savingQuote}>
-                <IonIcon icon={calculator} slot="start" />
-                {savingQuote ? "Guardando Cotizacion..." : "Calcular Cotizacion"}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+                <IonButton onClick={handleGetLocation} disabled={locationLoading}>
+                  {locationLoading ? <IonSpinner name="crescent" /> : <IonIcon icon={locate} slot="start" />}
+                  {locationInfo ? "Actualizar ubicacion" : "Obtener ubicacion"}
+                </IonButton>
+                <IonButton fill="outline" color={locationTracking ? "danger" : "secondary"} onClick={handleToggleLocationTracking}>
+                  <IonIcon icon={navigate} slot="start" />
+                  {locationTracking ? "Detener seguimiento" : "Seguimiento en tiempo real"}
+                </IonButton>
+                {locationInfo && (
+                  <IonButton fill="outline" color="primary" href={googleMapsUrl} target="_blank" rel="noreferrer">
+                    <IonIcon icon={navigate} slot="start" />
+                    Abrir en Google Maps
+                  </IonButton>
+                )}
+              </div>
+
+              {locationInfo ? (
+                <iframe
+                  title="Mapa de ubicacion del vehiculo"
+                  src={mapEmbedUrl}
+                  style={{
+                    width: "100%",
+                    height: 240,
+                    border: "1px solid #d5e4ff",
+                    borderRadius: 12,
+                    background: "#fff",
+                  }}
+                  loading="lazy"
+                />
+              ) : (
+                <div
+                  style={{
+                    height: 180,
+                    borderRadius: 12,
+                    border: "1px dashed #c7d8f7",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    textAlign: "center",
+                    color: "#6b7280",
+                    fontSize: 12,
+                    padding: 16,
+                  }}
+                >
+                  Usa el boton "Obtener ubicacion" para mostrar el mapa del vehiculo.
+                </div>
+              )}
+            </IonCardContent>
+          </IonCard>
+        </div>
+
+        <div style={{ padding: "14px 16px 0" }}>
+          <IonCard style={{ margin: 0, borderRadius: 12, border: "2px solid #fbbc04" }}>
+            <IonCardHeader style={{ paddingBottom: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <IonIcon icon={documentText} style={{ color: "#b06000", fontSize: 20 }} />
+                <IonCardTitle style={{ fontSize: 16, color: "#8a5300" }}>
+                  Enviar inspeccion al sistema
+                </IonCardTitle>
+              </div>
+            </IonCardHeader>
+            <IonCardContent>
+              {latestQuote ? (
+                <div style={{ background: "#fff8e1", borderRadius: 10, padding: 12, marginBottom: 12 }}>
+                  <p style={{ margin: "0 0 4px", fontSize: 12 }}><strong>Cotizacion:</strong> #{latestQuote.id}</p>
+                  <p style={{ margin: "0 0 4px", fontSize: 12 }}><strong>Vehiculo:</strong> ID {latestQuote.vehicleId}</p>
+                  <p style={{ margin: 0, fontSize: 12 }}><strong>Estado:</strong> {latestQuote.status || "draft"}</p>
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: "#666" }}>
+                  Primero genera una cotizacion en la pestaña Cotizador para poder enviar la inspeccion al inspector.
+                </p>
+              )}
+
+              <IonButton
+                expand="block"
+                onClick={handleSaveInspection}
+                disabled={!latestQuote || savingInspection}
+              >
+                {savingInspection ? <IonSpinner name="crescent" /> : <IonIcon icon={documentText} slot="start" />}
+                {savingInspection ? "Guardando inspeccion..." : "Guardar inspeccion para revision"}
               </IonButton>
             </IonCardContent>
           </IonCard>
@@ -553,12 +834,14 @@ const Profile: React.FC = () => {
                       <p style={{ fontSize: 11, color: "#137333", fontWeight: "bold", margin: "0 0 8px" }}>
                         EVIDENCIA NATIVA CAPTURADA
                       </p>
-                      <p style={{ fontSize: 12, margin: "0 0 4px" }}>
-                        Foto del vehiculo: <strong>{cotizacion.evidencia?.vehiculo ? "Adjunta" : "Pendiente"}</strong>
+                      <p style={{ fontSize: 12, margin: "0 0 8px" }}>
+                        Fotos capturadas: <strong>{Object.values(cotizacion.evidencia || {}).filter(Boolean).length}</strong>
                       </p>
-                      <p style={{ fontSize: 12, margin: 0 }}>
-                        Foto de la cedula: <strong>{cotizacion.evidencia?.cedula ? "Adjunta" : "Pendiente"}</strong>
-                      </p>
+                      {EVIDENCE_FIELDS.map((item) => (
+                        <p key={item.key} style={{ fontSize: 12, margin: "0 0 4px" }}>
+                          {item.title}: <strong>{cotizacion.evidencia?.[item.key] ? "Adjunta" : "Pendiente"}</strong>
+                        </p>
+                      ))}
                     </div>
 
                     {/* Datos vehiculo */}
@@ -711,7 +994,7 @@ const Profile: React.FC = () => {
           <div style={{ padding: "24px 16px", textAlign: "center" }}>
             <IonIcon icon={documentText} style={{ fontSize: 52, color: "#ccc" }} />
             <p style={{ color: "#aaa", fontSize: 13, marginTop: 8 }}>
-              Ingresa los datos del vehiculo y presiona "Calcular Cotizacion" para generar tu presupuesto
+              Desde esta pantalla puedes adjuntar fotos, compartir la ubicacion actual y guardar la inspeccion para el rol inspector.
             </p>
           </div>
         )}

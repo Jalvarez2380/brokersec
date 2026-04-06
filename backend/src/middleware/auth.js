@@ -4,6 +4,7 @@
 
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const { normalizeRole } = require('../config/roles');
 
 /**
  * Middleware: Verificar API Key interna
@@ -20,7 +21,7 @@ const verifyApiKey = (req, res, next) => {
     });
   }
 
-  if (apiKey !== config.security.internalApiKey) {
+  if (!config.security.internalApiKey || apiKey !== config.security.internalApiKey) {
     return res.status(403).json({
       success: false,
       error: 'API Key inválida',
@@ -54,6 +55,31 @@ const authenticateToken = (req, res, next) => {
   }
 };
 
+const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado',
+        error: 'No autorizado',
+      });
+    }
+
+    const userRole = normalizeRole(req.user.role);
+    const normalizedAllowed = allowedRoles.map((role) => normalizeRole(role));
+
+    if (!normalizedAllowed.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: 'No tienes permisos para acceder a este recurso',
+        error: 'Acceso denegado',
+      });
+    }
+
+    next();
+  };
+};
+
 /**
  * Middleware: Logging de requests
  */
@@ -68,6 +94,14 @@ const requestLogger = (req, res, next) => {
  */
 const errorHandler = (err, req, res, next) => {
   console.error('Error:', err);
+
+  if (err?.code === '23505') {
+    return res.status(409).json({
+      success: false,
+      message: 'La cédula, el usuario o el correo ya están registrados',
+      error: 'Registro duplicado',
+    });
+  }
 
   const statusCode = err.statusCode || 500;
   const message = err.message || 'Error interno del servidor';
@@ -86,7 +120,7 @@ const errorHandler = (err, req, res, next) => {
 const validateBody = (schema) => {
   return (req, res, next) => {
     const { error } = schema.validate(req.body);
-    
+
     if (error) {
       return res.status(400).json({
         success: false,
@@ -94,7 +128,7 @@ const validateBody = (schema) => {
         details: error.details.map(d => d.message),
       });
     }
-    
+
     next();
   };
 };
@@ -102,6 +136,7 @@ const validateBody = (schema) => {
 module.exports = {
   verifyApiKey,
   authenticateToken,
+  authorizeRoles,
   requestLogger,
   errorHandler,
   validateBody,

@@ -7,7 +7,16 @@ import {
 } from "@capacitor/camera";
 import { Capacitor } from "@capacitor/core";
 
-export type EvidencePhotoType = "vehicle" | "document";
+export type EvidencePhotoType =
+  | "vehicle"
+  | "document"
+  | "front"
+  | "rear"
+  | "left"
+  | "right"
+  | "odometer"
+  | "extra1"
+  | "extra2";
 
 export interface EvidencePhoto {
   type: EvidencePhotoType;
@@ -19,6 +28,13 @@ export interface EvidencePhoto {
 const LABELS: Record<EvidencePhotoType, string> = {
   vehicle: "Foto del vehiculo",
   document: "Foto de la cedula",
+  front: "Vehiculo delantero",
+  rear: "Vehiculo trasero",
+  left: "Lado izquierdo",
+  right: "Lado derecho",
+  odometer: "Panel kilometraje",
+  extra1: "Foto extra 1",
+  extra2: "Foto extra 2",
 };
 
 function isGranted(state?: CameraPermissionState) {

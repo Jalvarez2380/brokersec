@@ -28,6 +28,7 @@ export interface RegisterData {
   username: string;
   password: string;
   mobile?: string;
+  role?: string;
 }
 
 export interface UserData {

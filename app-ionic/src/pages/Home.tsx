@@ -9,11 +9,14 @@ import {
 import {
   calculator, shield, car, call, checkmarkCircle,
   alertCircle, medkit, construct, personAdd, eye, eyeOff,
-  person, logOut, chatbubbles,
+  person, logOut, chatbubbles, documentText, locate, people,
 } from "ionicons/icons";
 import { useHistory } from "react-router-dom";
 import { authService } from "../services/auth.service";
-import { getUserDisplayName, normalizeAppUser } from "../services/user.utils";
+import { getUserDisplayName, normalizeAppUser, hasRole, normalizeRole } from "../services/user.utils";
+import { listMyQuotes, QuoteRecord } from "../services/quote.service";
+import { listInspections, InspectionRecord } from "../services/inspection.service";
+import { ROLE_LABELS, USER_ROLES } from "../constants/roles";
 import AssistantModal from "../components/AssistantModal";
 
 const Home: React.FC = () => {
@@ -25,17 +28,35 @@ const Home: React.FC = () => {
   const [usuarioActual, setUsuarioActual] = useState<any>(null);
 
   useEffect(() => {
+    const loadRoleData = async (userData: any) => {
+      try {
+        if (hasRole(userData, [USER_ROLES.INSPECTOR, USER_ROLES.ADMIN])) {
+          const inspections = await listInspections();
+          setRecentInspections(inspections.slice(0, 5));
+        }
+
+        if (hasRole(userData, [USER_ROLES.SALES, USER_ROLES.ADMIN])) {
+          const quotes = await listMyQuotes();
+          setRecentQuotes(quotes.slice(0, 5));
+        }
+      } catch (dashboardError) {
+        console.warn("No se pudo cargar el tablero por rol:", dashboardError);
+      }
+    };
+
     const loadUser = async () => {
       const localUser = normalizeAppUser(authService.getCurrentUser());
       if (localUser) {
         setUsuarioActual(localUser);
         setYaRegistrado(true);
+        await loadRoleData(localUser);
       }
 
       const apiUser = normalizeAppUser(await authService.user());
       if (apiUser) {
         setUsuarioActual(apiUser);
         setYaRegistrado(true);
+        await loadRoleData(apiUser);
       }
     };
 
@@ -59,8 +80,52 @@ const Home: React.FC = () => {
   const [toastMsg, setToastMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [recentQuotes, setRecentQuotes] = useState<QuoteRecord[]>([]);
+  const [recentInspections, setRecentInspections] = useState<InspectionRecord[]>([]);
 
   const inputStyle = { "--background": "#f0f4ff" } as any;
+
+  const currentRole = normalizeRole(usuarioActual?.role);
+  const isInspector = hasRole(usuarioActual, [USER_ROLES.INSPECTOR]);
+  const isSales = hasRole(usuarioActual, [USER_ROLES.SALES]);
+  const isAdmin = hasRole(usuarioActual, [USER_ROLES.ADMIN]);
+  const isCustomer = yaRegistrado && !isInspector && !isSales && !isAdmin;
+
+  const primaryAction = isAdmin
+    ? { label: "Panel Admin", icon: people, action: () => history.push("/tabs/admin") }
+    : isInspector
+      ? { label: "Ver Inspecciones", icon: documentText, action: () => history.push("/tabs/inspecciones") }
+      : isSales
+        ? { label: "Cotizaciones", icon: calculator, action: () => history.push("/tabs/cotizador") }
+        : { label: "Ir al Cotizador", icon: calculator, action: () => history.push("/tabs/cotizador") };
+
+  const serviceItems = isAdmin
+    ? [
+        { icon: people, color: "primary", label: "Usuarios", action: () => history.push("/tabs/admin") },
+        { icon: documentText, color: "success", label: "Inspecciones", action: () => history.push("/tabs/inspecciones") },
+        { icon: calculator, color: "warning", label: "Cotizaciones", action: () => history.push("/tabs/cotizador") },
+        { icon: call, color: "danger", label: "Soporte", action: openWhatsApp },
+      ]
+    : isInspector
+      ? [
+          { icon: documentText, color: "primary", label: "Inspecciones", action: () => history.push("/tabs/inspecciones") },
+          { icon: locate, color: "success", label: "Ubicaciones", action: () => history.push("/tabs/inspecciones") },
+          { icon: car, color: "warning", label: "Vehículos", action: () => history.push("/tabs/inspecciones") },
+          { icon: call, color: "danger", label: "Contacto 24/7", action: openWhatsApp },
+        ]
+      : isSales
+        ? [
+            { icon: calculator, color: "primary", label: "Cotizar Seguro", action: () => history.push("/tabs/cotizador") },
+            { icon: people, color: "success", label: "Clientes", action: () => history.push("/tabs/cotizador") },
+            { icon: car, color: "warning", label: "Vehículos", action: () => history.push("/tabs/cotizador") },
+            { icon: call, color: "danger", label: "Contacto 24/7", action: openWhatsApp },
+          ]
+        : [
+            { icon: calculator, color: "primary", label: "Cotizar Seguro", action: () => history.push("/tabs/cotizador") },
+            { icon: shield, color: "success", label: "Mis Polizas", action: () => {} },
+            { icon: car, color: "warning", label: "Mis Vehiculos", action: () => {} },
+            { icon: call, color: "danger", label: "Contacto 24/7", action: openWhatsApp },
+          ];
 
   // ——— Cerrar sesion ———
   const handleLogout = async () => {
@@ -68,12 +133,12 @@ const Home: React.FC = () => {
     window.location.href = "/login";
   };
 
-  const openWhatsApp = () => {
+  function openWhatsApp() {
     const popup = window.open(whatsappUrl, "_blank", "noopener,noreferrer");
     if (!popup) {
       window.location.href = whatsappUrl;
     }
-  };
+  }
 
   // ——— Registro ———
   const handleRegistro = async () => {
@@ -170,9 +235,9 @@ const Home: React.FC = () => {
           <p style={{ margin: "0 0 14px", fontSize: 13, opacity: 0.9 }}>
             Seguro Inteligente para tu vehiculo en Ecuador
           </p>
-          <IonButton color="light" size="small" onClick={() => history.push("/tabs/cotizador")}>
-            <IonIcon icon={calculator} slot="start" />
-            Cotizar ahora
+          <IonButton color="light" size="small" onClick={primaryAction.action}>
+            <IonIcon icon={primaryAction.icon} slot="start" />
+            {primaryAction.label}
           </IonButton>
         </div>
 
@@ -182,7 +247,7 @@ const Home: React.FC = () => {
             Nuestra Empresa
           </h3>
           <div style={{ borderRadius: 12, overflow: "hidden", background: "#000" }}>
-            <video controls width="100%"
+            <video controls loop autoPlay muted width="100%"
               style={{ display: "block", maxHeight: 200 }}
               poster="/logo.png">
               <source src="/brokersec.mp4" type="video/mp4" />
@@ -216,7 +281,9 @@ const Home: React.FC = () => {
                     <p style={{ fontWeight: "bold", fontSize: 16, margin: 0 }}>
                       {getUserDisplayName(usuarioActual)}
                     </p>
-                    <IonBadge color="success" style={{ fontSize: 10 }}>Cliente Activo</IonBadge>
+                    <IonBadge color={isAdmin ? "warning" : isInspector ? "success" : isSales ? "tertiary" : "primary"} style={{ fontSize: 10 }}>
+                      {ROLE_LABELS[currentRole] || currentRole}
+                    </IonBadge>
                   </div>
                 </div>
 
@@ -240,9 +307,9 @@ const Home: React.FC = () => {
                 <IonGrid style={{ padding: 0 }}>
                   <IonRow>
                     <IonCol size="8" style={{ paddingLeft: 0, paddingRight: 4 }}>
-                      <IonButton expand="block" onClick={() => history.push("/tabs/cotizador")}>
-                        <IonIcon icon={calculator} slot="start" />
-                        Ir al Cotizador
+                      <IonButton expand="block" onClick={primaryAction.action}>
+                        <IonIcon icon={primaryAction.icon} slot="start" />
+                        {primaryAction.label}
                       </IonButton>
                     </IonCol>
                     <IonCol size="4" style={{ paddingRight: 0, paddingLeft: 4 }}>
@@ -403,17 +470,78 @@ const Home: React.FC = () => {
           )}
         </div>
 
+        {yaRegistrado && usuarioActual && (isInspector || isSales || isAdmin) && (
+          <div style={{ padding: "16px 16px 0" }}>
+            <h3 style={{ color: "#1a73e8", fontWeight: "bold", margin: "0 0 8px" }}>
+              Panel de {ROLE_LABELS[currentRole] || currentRole}
+            </h3>
+
+            {(isInspector || isAdmin) && (
+              <IonCard style={{ margin: 0, borderRadius: 12 }}>
+                <IonCardHeader>
+                  <IonCardTitle style={{ fontSize: 16 }}>Inspecciones cargadas</IonCardTitle>
+                </IonCardHeader>
+                <IonCardContent>
+                  {recentInspections.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+                      Aun no hay inspecciones registradas en la base de datos.
+                    </p>
+                  ) : (
+                    recentInspections.slice(0, 3).map((inspection) => (
+                      <div key={inspection.id} style={{ padding: "8px 0", borderBottom: "1px solid #eef2f7" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                          <strong>Inspección #{inspection.id}</strong>
+                          <IonBadge color="success">{inspection.status || "pending"}</IonBadge>
+                        </div>
+                        <p style={{ margin: "4px 0 0", fontSize: 12 }}>
+                          {inspection.customer?.name || "Cliente"} · {inspection.vehicle?.brand || "Vehículo"} {inspection.vehicle?.model || ""}
+                        </p>
+                        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#555" }}>
+                          Fotos: {inspection.evidences?.length || 0}
+                          {inspection.location?.latitude ? ` · Ubicación: ${inspection.location.latitude.toFixed(4)}, ${inspection.location.longitude.toFixed(4)}` : " · Sin ubicación"}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </IonCardContent>
+              </IonCard>
+            )}
+
+            {(isSales || isAdmin) && (
+              <IonCard style={{ marginTop: 12, borderRadius: 12 }}>
+                <IonCardHeader>
+                  <IonCardTitle style={{ fontSize: 16 }}>Cotizaciones recientes</IonCardTitle>
+                </IonCardHeader>
+                <IonCardContent>
+                  {recentQuotes.length === 0 ? (
+                    <p style={{ margin: 0, fontSize: 13, color: "#666" }}>
+                      Aun no hay cotizaciones para mostrar.
+                    </p>
+                  ) : (
+                    recentQuotes.slice(0, 4).map((quote) => (
+                      <div key={quote.id} style={{ padding: "8px 0", borderBottom: "1px solid #eef2f7" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                          <strong>Cotización #{quote.id}</strong>
+                          <IonBadge color="primary">{quote.status || "draft"}</IonBadge>
+                        </div>
+                        <p style={{ margin: "4px 0 0", fontSize: 12 }}>
+                          {quote.city || "Quito"} · ${Number(quote.totalPremium || 0).toFixed(2)}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </IonCardContent>
+              </IonCard>
+            )}
+          </div>
+        )}
+
         {/* ===== ACCESOS RAPIDOS ===== */}
         <div style={{ padding: "16px 16px 0" }}>
           <h3 style={{ color: "#1a73e8", fontWeight: "bold", margin: "0 0 8px" }}>Servicios</h3>
           <IonGrid style={{ padding: 0 }}>
             <IonRow>
-              {[
-                { icon: calculator, color: "primary",  label: "Cotizar Seguro",  action: () => history.push("/tabs/cotizador") },
-                { icon: shield,     color: "success",  label: "Mis Polizas",     action: () => {} },
-                { icon: car,        color: "warning",  label: "Mis Vehiculos",   action: () => {} },
-                { icon: call,       color: "danger",   label: "Contacto 24/7",   action: () => {} },
-              ].map((item, i) => (
+              {serviceItems.map((item, i) => (
                 <IonCol size="6" key={i}>
                   <IonCard button onClick={item.action} style={{ margin: 0 }}>
                     <IonCardContent style={{ textAlign: "center", padding: 12 }}>
@@ -427,6 +555,8 @@ const Home: React.FC = () => {
           </IonGrid>
         </div>
 
+        {isCustomer && (
+        <>
         {/* ===== COBERTURAS ===== */}
         <div style={{ padding: "16px 16px 0" }}>
           <h3 style={{ color: "#1a73e8", fontWeight: "bold", margin: "0 0 8px" }}>
@@ -561,6 +691,8 @@ const Home: React.FC = () => {
             </IonCardContent>
           </IonCard>
         </div>
+        </>
+        )}
 
         <IonFab slot="fixed" vertical="bottom" horizontal="end">
           <IonFabButton color="tertiary" onClick={() => setAssistantOpen(true)}>

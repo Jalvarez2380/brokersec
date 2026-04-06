@@ -11,6 +11,10 @@ yarn build
 echo "🔄 Sincronizando con Android..."
 npx cap sync android
 
+# Fix: jcenter() fue eliminado de Gradle, reemplazar con mavenCentral()
+sed -i 's/jcenter()/mavenCentral()/g' node_modules/@capacitor-community/http/android/build.gradle
+echo "✔ Fix jcenter -> mavenCentral aplicado"
+
 if [ "$1" == "--release" ]; then
   echo "🔨 Compilando APK release..."
   cd android && ./gradlew bundleRelease

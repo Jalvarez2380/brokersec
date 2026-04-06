@@ -25,6 +25,22 @@ export interface QuoteFlowResult {
   quote: any;
 }
 
+export interface QuoteRecord {
+  id: number;
+  userId?: number;
+  vehicleId?: number;
+  city?: string;
+  country?: string;
+  status?: string;
+  coveragePlan?: string;
+  insuredValue?: number;
+  premiumNet?: number;
+  taxes?: number;
+  totalPremium?: number;
+  payload?: Record<string, any>;
+  createdAt?: string;
+}
+
 async function getAuthenticatedUser(): Promise<AppUser> {
   const current = authService.getCurrentUser();
   const normalizedCurrent = normalizeAppUser(current);
@@ -37,6 +53,11 @@ async function getAuthenticatedUser(): Promise<AppUser> {
   }
 
   return normalizedApi;
+}
+
+export async function listMyQuotes(): Promise<QuoteRecord[]> {
+  const response = await api.get<{ success: boolean; data: QuoteRecord[] }>("/api/quotes");
+  return response.data || [];
 }
 
 export async function createVehicleAndQuote(
@@ -56,7 +77,6 @@ export async function createVehicleAndQuote(
       extrasValue: input.extrasValue || 0,
       metadata: input.payload?.vehicleMetadata || {},
     },
-    false,
   );
 
   const vehicle = vehicleResponse.data;
@@ -76,7 +96,6 @@ export async function createVehicleAndQuote(
       totalPremium: input.totalPremium,
       payload: input.payload || {},
     },
-    false,
   );
 
   return {

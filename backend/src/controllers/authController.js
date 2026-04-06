@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
 const userRepository = require('../repositories/userRepository');
+const { normalizeRole, USER_ROLES } = require('../config/roles');
 
 function normalizeSignupBody(body = {}) {
   return {
@@ -12,6 +13,7 @@ function normalizeSignupBody(body = {}) {
     username: body.username || body.usuario,
     password: body.password,
     mobile: body.mobile || body.telefono,
+    role: body.role,
   };
 }
 
@@ -36,7 +38,7 @@ class AuthController {
   async signup(req, res, next) {
     try {
       const payload = normalizeSignupBody(req.body);
-      const { dni, firstName, lastName, email, username, password, mobile } = payload;
+      const { dni, firstName, lastName, email, username, password, mobile, role } = payload;
 
       if (!dni || !firstName || !lastName || !email || !username || !password) {
         return res.status(400).json({
@@ -47,15 +49,23 @@ class AuthController {
 
       const existingByUsername = await userRepository.findByUsernameOrEmail(username);
       const existingByEmail = existingByUsername ? existingByUsername : await userRepository.findByUsernameOrEmail(email);
+      const existingByDni = existingByEmail ? existingByEmail : await userRepository.findByUsernameOrEmail(dni);
 
-      if (existingByEmail) {
+      if (existingByDni) {
         return res.status(409).json({
           success: false,
-          message: 'El usuario o correo ya existe',
+          message: 'La cédula, el usuario o el correo ya están registrados',
         });
       }
 
       const passwordHash = await bcrypt.hash(password, config.bcrypt.saltRounds);
+      const normalizedRequestedRole = normalizeRole(role);
+      const requestedRole = req.user && normalizeRole(req.user.role) === USER_ROLES.ADMIN
+        ? normalizedRequestedRole
+        : [USER_ROLES.USER, USER_ROLES.INSPECTOR, USER_ROLES.SALES].includes(normalizedRequestedRole)
+          ? normalizedRequestedRole
+          : USER_ROLES.USER;
+
       const user = await userRepository.createUser({
         dni,
         firstName,
@@ -64,6 +74,7 @@ class AuthController {
         username,
         passwordHash,
         mobile,
+        role: requestedRole,
       });
 
       return res.status(201).json({

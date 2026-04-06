@@ -1,4 +1,9 @@
 const quoteRepository = require('../repositories/quoteRepository');
+const { normalizeRole, USER_ROLES } = require('../config/roles');
+
+function canViewAllQuotes(role) {
+  return [USER_ROLES.ADMIN, USER_ROLES.INSPECTOR, USER_ROLES.SALES].includes(normalizeRole(role));
+}
 
 class QuoteController {
   async create(req, res, next) {
@@ -17,8 +22,11 @@ class QuoteController {
         payload,
       } = req.body;
 
+      const role = normalizeRole(req.user?.role);
+      const resolvedUserId = role === USER_ROLES.ADMIN && userId ? userId : req.user?.sub || userId;
+
       const quote = await quoteRepository.createQuote({
-        userId,
+        userId: resolvedUserId,
         vehicleId,
         city,
         country,
@@ -42,8 +50,9 @@ class QuoteController {
 
   async list(req, res, next) {
     try {
+      const role = normalizeRole(req.user?.role);
       const quotes = await quoteRepository.listQuotes({
-        userId: req.query.userId,
+        userId: canViewAllQuotes(role) ? req.query.userId : req.user?.sub,
         vehicleId: req.query.vehicleId,
       });
 
@@ -63,6 +72,13 @@ class QuoteController {
         return res.status(404).json({
           success: false,
           message: 'Cotización no encontrada',
+        });
+      }
+
+      if (!canViewAllQuotes(req.user?.role) && Number(quote.userId) !== Number(req.user?.sub)) {
+        return res.status(403).json({
+          success: false,
+          message: 'No tienes permisos para ver esta cotización',
         });
       }
 

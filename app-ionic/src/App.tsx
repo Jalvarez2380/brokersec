@@ -18,7 +18,7 @@ import { Route, Redirect } from "react-router-dom";
 
 const RouteComp: any = Route as any;
 const RedirectComp: any = Redirect as any;
-import { home, person, calculator } from "ionicons/icons";
+import { home, person, calculator, documentText, people } from "ionicons/icons";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { SplashScreen } from "@capacitor/splash-screen";
 import { Capacitor } from "@capacitor/core";
@@ -30,10 +30,14 @@ import Register from "./pages/Register";
 import Home from "./pages/Home";
 import Profile from "./pages/Profile";
 import Cotizador from "./pages/Cotizador";
+import Inspections from "./pages/Inspections";
+import AdminPanel from "./pages/AdminPanel";
 import { authService } from "./services/auth.service";
 import { initStorage } from "./storage";
 import { updateService } from "./services/update.service";
 import { USE_MOCK_FALLBACK } from "./config";
+import { normalizeAppUser, hasRole } from "./services/user.utils";
+import { ADMIN_ROLES, COTIZADOR_ROLES, INSPECTION_ROLES } from "./constants/roles";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -64,6 +68,7 @@ const App: React.FC = () => {
 
   const [isReady, setIsReady] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<string | undefined>();
 
@@ -133,6 +138,18 @@ const App: React.FC = () => {
         console.log("Auth check (MOCK:", USE_MOCK_FALLBACK, "):", authenticated);
         setIsAuthenticated(authenticated);
 
+        if (authenticated) {
+          const localUser = normalizeAppUser(authService.getCurrentUser());
+          if (localUser) {
+            setCurrentUser(localUser);
+          }
+
+          const remoteUser = normalizeAppUser(await authService.user());
+          if (remoteUser) {
+            setCurrentUser(remoteUser);
+          }
+        }
+
         setupBackButton();
         checkForUpdates();
         setIsReady(true);
@@ -176,6 +193,19 @@ const App: React.FC = () => {
     );
   }
 
+  const canUseCotizador = hasRole(currentUser, COTIZADOR_ROLES);
+  const canViewInspections = hasRole(currentUser, INSPECTION_ROLES);
+  const canManageUsers = hasRole(currentUser, ADMIN_ROLES);
+  const canViewHome = !hasRole(currentUser, ["inspector"]);
+  const canViewProfile = !hasRole(currentUser, ["inspector", "ventas"]);
+  const defaultAuthenticatedRoute = canManageUsers
+    ? "/tabs/admin"
+    : canViewInspections
+      ? "/tabs/inspecciones"
+      : canUseCotizador
+        ? "/tabs/cotizador"
+        : "/tabs/inicio";
+
   return (
     <QueryClientProvider client={queryClient}>
       <IonApp>
@@ -192,7 +222,7 @@ const App: React.FC = () => {
         <IonReactRouter>
           <IonRouterOutlet>
             <RouteComp exact path="/login">
-              {isAuthenticated ? <RedirectComp to="/tabs/inicio" /> : <Login />}
+              {isAuthenticated ? <RedirectComp to={defaultAuthenticatedRoute} /> : <Login />}
             </RouteComp>
             <RouteComp exact path="/register" component={Register} />
             <RouteComp path="/tabs">
@@ -201,32 +231,62 @@ const App: React.FC = () => {
               ) : (
                 <IonTabs>
                   <IonRouterOutlet>
-                    <RouteComp exact path="/tabs/inicio" component={Home} />
-                    <RouteComp exact path="/tabs/perfil" component={Profile} />
-                    <RouteComp exact path="/tabs/cotizador" component={Cotizador} />
+                    <RouteComp exact path="/tabs/inicio">
+                      {canViewHome ? <Home /> : <RedirectComp to={defaultAuthenticatedRoute} />}
+                    </RouteComp>
+                    <RouteComp exact path="/tabs/perfil">
+                      {canViewProfile ? <Profile /> : <RedirectComp to={defaultAuthenticatedRoute} />}
+                    </RouteComp>
+                    <RouteComp exact path="/tabs/cotizador">
+                      {canUseCotizador ? <Cotizador /> : <RedirectComp to="/tabs/inicio" />}
+                    </RouteComp>
+                    <RouteComp exact path="/tabs/inspecciones">
+                      {canViewInspections ? <Inspections /> : <RedirectComp to="/tabs/inicio" />}
+                    </RouteComp>
+                    <RouteComp exact path="/tabs/admin">
+                      {canManageUsers ? <AdminPanel /> : <RedirectComp to="/tabs/inicio" />}
+                    </RouteComp>
                     <RouteComp exact path="/tabs">
-                      <RedirectComp to="/tabs/inicio" />
+                      <RedirectComp to={defaultAuthenticatedRoute} />
                     </RouteComp>
                   </IonRouterOutlet>
                   <IonTabBar slot="bottom">
-                    <IonTabButton tab="inicio" href="/tabs/inicio">
-                      <IonIcon icon={home} />
-                      <IonLabel>Inicio</IonLabel>
-                    </IonTabButton>
-                    <IonTabButton tab="cotizador" href="/tabs/cotizador">
-                      <IonIcon icon={calculator} />
-                      <IonLabel>Cotizador</IonLabel>
-                    </IonTabButton>
-                    <IonTabButton tab="perfil" href="/tabs/perfil">
-                      <IonIcon icon={person} />
-                      <IonLabel>Perfil</IonLabel>
-                    </IonTabButton>
+                    {canViewHome && (
+                      <IonTabButton tab="inicio" href="/tabs/inicio">
+                        <IonIcon icon={home} />
+                        <IonLabel>Inicio</IonLabel>
+                      </IonTabButton>
+                    )}
+                    {canUseCotizador && (
+                      <IonTabButton tab="cotizador" href="/tabs/cotizador">
+                        <IonIcon icon={calculator} />
+                        <IonLabel>Cotizador</IonLabel>
+                      </IonTabButton>
+                    )}
+                    {canViewInspections && (
+                      <IonTabButton tab="inspecciones" href="/tabs/inspecciones">
+                        <IonIcon icon={documentText} />
+                        <IonLabel>Inspecciones</IonLabel>
+                      </IonTabButton>
+                    )}
+                    {canManageUsers && (
+                      <IonTabButton tab="admin" href="/tabs/admin">
+                        <IonIcon icon={people} />
+                        <IonLabel>Admin</IonLabel>
+                      </IonTabButton>
+                    )}
+                    {canViewProfile && (
+                      <IonTabButton tab="perfil" href="/tabs/perfil">
+                        <IonIcon icon={person} />
+                        <IonLabel>Perfil</IonLabel>
+                      </IonTabButton>
+                    )}
                   </IonTabBar>
                 </IonTabs>
               )}
             </RouteComp>
             <RouteComp exact path="/">
-              <RedirectComp to={isAuthenticated ? "/tabs/inicio" : "/login"} />
+              <RedirectComp to={isAuthenticated ? defaultAuthenticatedRoute : "/login"} />
             </RouteComp>
           </IonRouterOutlet>
         </IonReactRouter>
